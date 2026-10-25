@@ -19,7 +19,7 @@ export function Toasts() {
                 <Toast.Title className="text-xs font-semibold" />
                 <Toast.Description className="text-[11px] wrap-break-word whitespace-pre-line text-ink/55" />
               </div>
-              <Toast.Close aria-label="Dismiss" className="grid size-6 shrink-0 place-items-center rounded-sm text-muted hover:bg-ink/5 hover:text-ink">
+              <Toast.Close aria-label="Dismiss notification" className="grid size-6 shrink-0 place-items-center rounded-sm text-muted hover:bg-ink/5 hover:text-ink">
                 <X size={13} />
               </Toast.Close>
             </Toast.Content>

@@ -38,8 +38,8 @@ export function TimelineFooter(props: {
           {range
             ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more`
             : props.empty
-              ? 'Add videos or audio to start editing'
-              : 'Drag in the Select bar to pick a range · click the ruler to move the playhead · I / O mark in / out'}
+              ? 'Add media to start editing'
+              : 'Drag in the Select bar to select · click the ruler to move the playhead · I / O mark the selection start / end'}
         </span>
       )}
       <div className="flex-1" />

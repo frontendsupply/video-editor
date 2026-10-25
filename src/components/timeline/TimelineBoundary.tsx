@@ -13,8 +13,8 @@ export class TimelineBoundary extends Component<{ onUndo: () => void; children: 
     return (
       <div className="grid h-60 shrink-0 place-content-center justify-items-center gap-3 bg-surface p-4 text-center">
         <div className="grid gap-1">
-          <span className="text-xs font-semibold">The timeline hit an error</span>
-          <span className="text-[11px] text-muted">{this.state.error}. Your project is still here.</span>
+          <span className="text-xs font-semibold">The timeline couldn't be shown</span>
+          <span className="text-[11px] text-muted">{this.state.error}. Your project is safe, and undoing the last change usually brings the timeline back.</span>
         </div>
         <button className={pill} onClick={() => (this.props.onUndo(), this.setState({ error: null }))}>Undo last change</button>
       </div>

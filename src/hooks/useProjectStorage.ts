@@ -6,6 +6,7 @@ import { play } from 'cuelume'
 import type { Picked } from '@/lib/media/import'
 import type { Media, Project } from '@/lib/model'
 import { clear, isFileOf, load, readHandles, save, toMedia, type Saved } from '@/lib/store'
+import { list, plural } from '@/lib/utils'
 import { toast } from '@/components/ui'
 import { useLatest } from './useLatest'
 
@@ -73,7 +74,10 @@ export function useProjectStorage({ project, media, setMedia, reset, readPeaks }
       return found.handle ? { ...m, handle: found.handle } : m
     })
     const extra = items.filter(x => !media.some(m => files.get(m.id) === x.file)).map(x => x.file.name)
-    if (extra.length) toast.add({ title: 'Not in your last project', description: `${extra.join(', ')}. Start fresh to work with new files.` })
+    if (extra.length) toast.add({
+        title: plural(extra.length, { one: "# file isn't in your last project", other: "# files aren't in your last project" }),
+        description: `${list(extra)}. To work with new files, start fresh.`,
+      })
     const saved = { ...r.saved, media }
     if (files.size === media.length) apply(saved, files)
     else setRestore({ ...r, saved, files })

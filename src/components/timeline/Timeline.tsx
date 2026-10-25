@@ -12,7 +12,7 @@ import {
   removeTrack, renameTrack, slideVideoClip, snapPoints, snapShift, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio,
   updateClip, type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type Range, type SplitTarget,
 } from '@/lib/model'
-import { cn } from '@/lib/utils'
+import { cn, plural } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui'
 import { AudioBody, ClipBody, Handle } from './ClipBody'
 import { FIT, HEAD, MEDIA_MIME, ROOM, SNAP_PX, STEP, TILE } from './constants'
@@ -520,7 +520,7 @@ export function Timeline(props: Props) {
       header: named(`a${l}`, <Music size={13} className="shrink-0" />),
       lane: (
         <div className={cn('relative h-full', lane, dropRing(`a${l}`))} {...dropProps(`a${l}`, { kind: 'audio', lane: l })}>
-          {!project.audio.some(c => laneOf(c) === l) && <span className={hint}>Drag and drop your audio clips here to mix</span>}
+          {!project.audio.some(c => laneOf(c) === l) && <span className={hint}>Drag audio from the media bin here to mix it in</span>}
           {layoutFree(project.audio).filter(pl => laneOf(pl.clip) === l).map(pl => freeClip(pl, 'audio'))}
         </div>
       ),
@@ -633,7 +633,7 @@ export function Timeline(props: Props) {
         open={!!confirm?.open}
         onOpenChange={open => !open && setConfirm(c => c && { ...c, open: false })}
         title={confirm && `Remove ${nameOf(confirm.kind, confirm.lane)}?`}
-        description={confirm && `It has ${confirm.clips} ${confirm.clips === 1 ? 'clip' : 'clips'}, which will be removed with the track. You can undo this.`}
+        description={confirm && `It has ${plural(confirm.clips, { one: '# clip', other: '# clips' })}, which will be removed with the track. You can undo this.`}
         confirm="Remove track"
         onConfirm={() => confirm && removeLane(confirm.kind, confirm.lane)}
       />

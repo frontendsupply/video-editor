@@ -1,4 +1,4 @@
-// The Select bar under the ruler: drag here to select a range (the timeline's scrub handles that, as on an empty lane).
+// The Select bar under the ruler: drag here to select part of the timeline (the timeline's scrub handles that, as on an empty lane).
 // The range shows as a block with its times; drag its edges or middle to adjust it, and its tools sit right after it.
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { Menu } from '@base-ui/react/menu'
@@ -33,7 +33,7 @@ export function RangeBar(props: {
     >
       {!range && (
         <span className="pointer-events-none sticky left-2 inline-flex h-full items-center gap-1.5 pl-2 text-[11px] whitespace-nowrap text-muted transition-colors group-hover/bar:text-ink/70">
-          <ArrowLeftRight size={12} /> Drag here to select a range
+          <ArrowLeftRight size={12} /> Drag here to select
         </span>
       )}
       {range && (
@@ -62,19 +62,19 @@ export function RangeBar(props: {
           className="absolute inset-y-0 z-25 ml-1 flex items-center gap-px rounded-sm bg-surface px-px ring-1 ring-line"
           style={{ left: range.b * pps }}
         >
-          <Tip label="Delete selected region (⌫)">
-            <button className={cn(mini, 'hover:text-playhead')} onClick={props.onDelete} aria-label="Delete selected region">
+          <Tip label="Delete selection (⌫)">
+            <button className={cn(mini, 'hover:text-playhead')} onClick={props.onDelete} aria-label="Delete selection">
               <Trash2 size={12} />
             </button>
           </Tip>
-          <Tip label="Crop to selected region">
-            <button className={mini} onClick={props.onCrop} aria-label="Crop to selected region">
+          <Tip label="Crop to selection">
+            <button className={mini} onClick={props.onCrop} aria-label="Crop to selection">
               <Crop size={12} />
             </button>
           </Tip>
           <Menu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
-            <Tip label="Export selected region">
-              <Menu.Trigger className={cn(mini, 'data-popup-open:bg-ink/5')} aria-label="Export selected region">
+            <Tip label="Export selection">
+              <Menu.Trigger className={cn(mini, 'data-popup-open:bg-ink/5')} aria-label="Export selection">
                 <Download size={12} />
               </Menu.Trigger>
             </Tip>

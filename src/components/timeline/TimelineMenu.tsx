@@ -27,17 +27,17 @@ export function TimelineMenu(props: {
           {target === 'range' && range ? (
             <>
               <ContextMenu.Item className={menuItem} onClick={props.onSplit}>
-                <span className="flex items-center gap-2"><Scissors size={13} /> Split All Tracks</span><kbd className={kbd}>S</kbd>
+                <span className="flex items-center gap-2"><Scissors size={13} /> Split all tracks</span><kbd className={kbd}>S</kbd>
               </ContextMenu.Item>
               <ContextMenu.Item className={menuItem} onClick={props.onDeleteRange}>
-                <span className="flex items-center gap-2"><Trash2 size={13} /> Delete Selected Region</span><kbd className={kbd}>⌫</kbd>
+                <span className="flex items-center gap-2"><Trash2 size={13} /> Delete selection</span><kbd className={kbd}>⌫</kbd>
               </ContextMenu.Item>
               <ContextMenu.Item className={menuItem} onClick={props.onCrop}>
-                <span className="flex items-center gap-2"><Crop size={13} /> Crop Selected Region</span>
+                <span className="flex items-center gap-2"><Crop size={13} /> Crop to selection</span>
               </ContextMenu.Item>
               <ContextMenu.SubmenuRoot>
                 <ContextMenu.SubmenuTrigger className={cn(menuItem, 'data-popup-open:bg-ink/6')}>
-                  <span className="flex items-center gap-2"><Download size={13} /> Export Selected Region</span>
+                  <span className="flex items-center gap-2"><Download size={13} /> Export selection</span>
                   <ChevronRight size={12} className="text-muted" />
                 </ContextMenu.SubmenuTrigger>
                 <ContextMenu.Portal>
@@ -60,7 +60,7 @@ export function TimelineMenu(props: {
                 <span className="flex items-center gap-2"><Unlink size={13} /> Unlink audio</span>
               </ContextMenu.Item>
               <ContextMenu.Item className={menuItem} onClick={() => props.onDeleteClip(target.clip.id)}>
-                <span className="flex items-center gap-2"><Trash2 size={13} /> Delete</span><kbd className={kbd}>⌫</kbd>
+                <span className="flex items-center gap-2"><Trash2 size={13} /> Delete clip</span><kbd className={kbd}>⌫</kbd>
               </ContextMenu.Item>
             </>
           ) : null}

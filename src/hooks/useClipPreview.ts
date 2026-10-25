@@ -53,7 +53,7 @@ export function useClipPreview({ media, setMedia, setProject, playerRef }: {
     play('success', { emphasis: 'subtle' })
     setMedia(ms => ({ ...ms, [id]: { ...m, id, name, range: [a, b], removed: false } }))
     if (m.hasVideo) thumbnail(m.file, a).then(thumb => thumb && setMedia(ms => (ms[id] ? { ...ms, [id]: { ...ms[id], thumb } } : ms)))
-    toast.add({ title: 'Saved to the media bin', description: name })
+    toast.add({ title: 'Clip saved to the media bin', description: name })
   }
 
   return { file, marks: source?.marks, monitor, show, open, close, setMarks, add, saveToBin }

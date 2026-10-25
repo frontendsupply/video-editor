@@ -38,8 +38,8 @@ export function Header(props: {
           <Redo2 size={13} />
         </button>
       </Tip>
-      <Tip label={props.deleting === 'region' ? 'Delete selected region (⌫)' : 'Delete selected clip (⌫)'}>
-        <button className={headerIcon} onClick={() => props.onDelete?.()} disabled={!props.onDelete} aria-label="Delete">
+      <Tip label={props.deleting === 'region' ? 'Delete selection (⌫)' : 'Delete selected clip (⌫)'}>
+        <button className={headerIcon} onClick={() => props.onDelete?.()} disabled={!props.onDelete} aria-label={props.deleting === 'region' ? 'Delete selection' : 'Delete selected clip'}>
           <Trash2 size={13} />
         </button>
       </Tip>
