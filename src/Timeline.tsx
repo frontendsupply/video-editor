@@ -9,7 +9,7 @@ import { Toggle } from '@base-ui/react/toggle'
 import { ArrowLeftFromLine, ArrowLeftRight, ArrowRightFromLine, ChevronRight, Crop, Download, Film, Layers, Magnet, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
 import {
   addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, layoutVideo, moveClip, moveVideoClip, PEAKS_PER_SEC, slideVideoClip, projectDuration, removeClip, removeTrack,
-  snapPoints, snapShift, timecode, trimClip, unlinkAudio, updateClip,
+  snapPoints, snapShift, timecode, trimClip, trimVideoIn, unlinkAudio, updateClip,
   type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type SplitTarget,
 } from './model'
 import { card, dialogBackdrop, dialogPopup, ExportItems, menuItem, pill, popup, Tip } from './ui'
@@ -250,25 +250,26 @@ export function Timeline(props: Props) {
   function trim(e: ReactPointerEvent, pl: Placed, edge: 'in' | 'out') {
     const { clip } = pl
     if (secondary(e, clip.id)) return
-    const free = !project.video.includes(clip) // free clips keep their content in place when trimming the left edge
+    const free = !project.video.includes(clip)
     const sound = project.audio.includes(clip)
     const base = project // every move re-derives from the drag start, so edits never accumulate error
     const i = project.video.indexOf(clip)
-    // skip this clip, and on Video 1 the clips after it too: they ripple with the edge
+    // skip this clip, and on Video 1 the clips after it too: they move with its right edge
     const snap = snapper(snapPoints(base, c => c === clip || (i >= 0 && base.video.indexOf(c) > i), [props.time()]))
-    const rippling = edge === 'in' && !free // the end moves the opposite way to the drag
+    // The dragged edge follows the mouse. A left edge keeps the content in place (on Video 1 the start moves into the
+    // gap in front, the clips after it stay put); a right edge on Video 1 carries the clips after it along.
     const trimmed = (d: number) => {
-      const c = trimClip(clip, edge, d, media[clip.mediaId].duration, free)
-      const start = free ? c.start : pl.start
-      return { c, start, edgeAt: edge === 'in' && free ? start : start + clipLength(c) }
+      const dur = media[clip.mediaId].duration
+      const c = !free && edge === 'in' ? trimVideoIn(clip, d, dur) : trimClip(clip, edge, d, dur, free)
+      const start = free ? c.start : pl.start - (clip.gap ?? 0) + (c.gap ?? 0)
+      return { c, start, edgeAt: edge === 'in' ? start : start + clipLength(c) }
     }
     pick(clip.id)
     track(
       e,
       (dx, _, ev) => {
         let d = dx / pps
-        const shift = snap([trimmed(d).edgeAt], ev)
-        d += rippling ? -shift : shift
+        d += snap([trimmed(d).edgeAt], ev)
         const { c, start } = trimmed(d)
         // video: jump the preview to the edge being trimmed so you see the cut frame
         onChange(updateClip(base, clip.id, c), sound ? undefined : edge === 'in' ? start : start + clipLength(c) - 0.01)

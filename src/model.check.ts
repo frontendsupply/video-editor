@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, snapPoints, snapShift,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift,
   type Clip, type Project,
 } from './model.ts'
 
@@ -110,6 +110,29 @@ const gapC = slideVideoClip(p, 'c', 20) // a 0-10, b 10-12, gap, c 20-30
 eq(starts(moveVideoClip(gapC, 'b', -1, 14)), [[0, 10], [14, 16], [18, 28]], 'move into a gap: lands at t')
 eq(starts(moveVideoClip(gapC, 'b', -1, 0)), [[0, 2], [2, 12], [18, 28]], 'move to the front: pushes the first clip')
 eq(layoutAll(g).length, layoutAll(p).length, 'gaps add no clips')
+
+// Video 1 left trim: the left edge follows the drag, the clip's end and the clips after it stay put
+const withB = (q: Project, b: Clip) => ({ ...q, video: q.video.map(c => (c.id === 'b' ? b : c)) })
+const tIn = withB(p, trimVideoIn(p.video[1], 0.5, 10)) // b was 10-12 (in 2, speed 2)
+eq([starts(tIn), tIn.video[1].in], [[[0, 10], [10.5, 12], [12, 22]], 3], 'left trim in: start moves right, end stays')
+eq(starts(withB(p, trimVideoIn(p.video[1], -1, 10))), starts(p), "left trim out: can't grow over the clip in front")
+const tOut = withB(g, trimVideoIn(g.video[1], -2, 10)) // b at 15-17 with a 5 s gap
+eq([starts(tOut), tOut.video[1].in], [[[0, 10], [14, 17], [17, 27]], 0], 'left trim out: grows into the gap, limited by the source (2 s at 2x)')
+
+// unchecking a file sets its clips aside; checking it again puts them back exactly
+const multi = { ...proj([clip('a'), clip('b', { mediaId: 'n', in: 2, out: 6, speed: 2 }), clip('c')], [clip('m', { mediaId: 'n', start: 15, out: 20, lane: 1 })]), overlayTracks: 0 }
+const multiG = slideVideoClip(multi, 'b', 13) // a 0-10, gap 3, b 13-15, c 15-25
+const off = parkMedia(multiG, 'n')
+eq([starts(off), off.audio.map(c => c.id), off.parked?.map(x => [x.track, x.clip.id, x.clip.start])], [[[0, 10], [13, 23]], [], [['video', 'b', 13], ['audio', 'm', 15]]], 'park: clips off, gap kept, set aside with times')
+const on = unparkMedia({ ...off, audioTracks: 1 }, { id: 'n', hasVideo: true, duration: 10 } as never)
+eq([starts(on), layoutFree(on.audio).map(x => [x.clip.id, x.start, laneOf(x.clip)]), on.audioTracks, on.parked], [starts(multiG), [['m', 15, 1]], 2, []], 'unpark: back exactly, track re-added')
+const fresh = unparkMedia(p, { id: 'z', hasVideo: false, duration: 4 } as never) // Audio 1 has m at 15-35
+eq(layoutFree(fresh.audio).filter(x => x.clip.mediaId === 'z').map(x => [x.start, laneOf(x.clip)]), [[35, 0]], 'never on the timeline: a sound goes after the last clip on Audio 1')
+eq(parkMedia(multi, 'nope'), multi, 'park a file with no clips: no-op')
+// two pieces of one file with a gap between them: the clip after them must not end up in between
+const pieces = slideVideoClip(proj([clip('r1', { mediaId: 'r', out: 1.5 }), clip('r2', { mediaId: 'r', in: 1.5, out: 3 }), clip('g', { mediaId: 'g' })]), 'r2', 2.5)
+eq(starts(unparkMedia(parkMedia(pieces, 'r'), { id: 'r', hasVideo: true, duration: 3 } as never)), starts(pieces), 'unpark split pieces in their order')
+eq(unparkMedia(parkMedia(pieces, 'r'), { id: 'r', hasVideo: true, duration: 3 } as never).video.map(c => c.id), ['r1', 'r2', 'g'], 'unpark keeps the order')
 
 // unlinking a video clip's sound into its own audio clip
 const u = unlinkAudio(p, 'b')

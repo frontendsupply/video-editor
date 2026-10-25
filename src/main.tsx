@@ -1,6 +1,7 @@
 import { Component, useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
+import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { Progress } from '@base-ui/react/progress'
 import { Tabs } from '@base-ui/react/tabs'
@@ -16,8 +17,8 @@ import { exportProject } from './export'
 import { useHistory } from './history'
 import { computePeaks, importFile } from './media'
 import {
-  cropRange, digitsFor, emptyProject, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, newClip, placeClip,
-  projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, updateClip,
+  audio1End, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip,
+  projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, unparkMedia, updateClip,
   type Clip, type DropTarget, type ExportPreset, type Media, type Project, type SplitTarget,
 } from './model'
 import { Player } from './player'
@@ -46,6 +47,8 @@ function App() {
   const [binTab, setBinTab] = useState<'video' | 'audio'>('video')
   const [progress, setProgress] = useState<number | null>(null)
   const [fileOver, setFileOver] = useState(false)
+  // A file being removed from the bin while it has clips: closing only flips `open`, so the text stays while it animates out.
+  const [removing, setRemoving] = useState<{ id: string; clips: number; open: boolean } | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
@@ -59,9 +62,14 @@ function App() {
 
   const duration = projectDuration(project)
   // Fully zoomed out, the whole edit fills 90% of the visible timeline; zooming in goes to at least 4× that.
+  // Editing never changes the zoom, so the view holds still while you trim, move or delete: only the zoom controls,
+  // the first import and Crop do. If the edit gets shorter the zoom can sit past these limits; the controls start
+  // from wherever it is.
   const zoomMin = duration && viewW ? zoomToFit(viewW, duration) : ZOOM_MIN
   const zoomMax = Math.max(ZOOM_MAX, zoomMin * 4)
-  const pps = Math.min(zoomMax, Math.max(zoomMin, zoom))
+  const pps = zoom
+  const zoomLo = Math.min(zoomMin, pps)
+  const zoomHi = Math.max(zoomMax, pps)
   const ppsRef = useRef(pps)
   ppsRef.current = pps
   const viewWRef = useRef(viewW) // visible width of the lanes (the scroll area minus the track names)
@@ -71,6 +79,7 @@ function App() {
   digitsRef.current = digits
   const sel = findPlaced(project, selected)
   const used = new Set([...project.video, ...project.overlay, ...project.audio].map(c => c.mediaId))
+  const parked = new Set((project.parked ?? []).map(x => x.clip.mediaId)) // unchecked files with clips set aside
 
   useEffect(() => bind(), []) // sound data attributes on controls play UI sounds
 
@@ -129,7 +138,7 @@ function App() {
   useEffect(() => playerRef.current!.onTime(playerRef.current!.t), [pps])
 
   const fitZoom = () => setZoom(zoomMin)
-  const zoomBy = (f: number) => setZoom(pps * f)
+  const zoomBy = (f: number) => setZoom(Math.min(zoomHi, Math.max(zoomLo, pps * f)))
   const wasEmpty = useRef(true)
   useEffect(() => {
     if (!viewW) return // fit once the timeline's width is known
@@ -167,6 +176,30 @@ function App() {
     play('tap', { emphasis: 'strong' })
     setProject(p => placeClip(p, m, target, t))
   }
+  // Removing a file from the bin also removes its clips from the timeline (asking first if it has any). The file stays
+  // in memory, hidden, so undo can bring the clips back, and with them the file.
+  const removeMedia = (id: string) => {
+    play('close', { emphasis: 'strong' })
+    setProject(p => {
+      const q = [...p.video, ...p.overlay, ...p.audio].filter(c => c.mediaId === id).reduce((q, c) => removeClip(q, c.id), p)
+      return { ...q, parked: (q.parked ?? []).filter(x => x.clip.mediaId !== id) }
+    })
+    setMedia(ms => ({ ...ms, [id]: { ...ms[id], removed: true } }))
+  }
+  const askRemoveMedia = (id: string) => {
+    const clips = [...project.video, ...project.overlay, ...project.audio].filter(c => c.mediaId === id).length
+    if (!clips) return removeMedia(id)
+    play('open')
+    setRemoving({ id, clips, open: true })
+  }
+  // The bin's checkbox. Unchecking takes a file's clips off the timeline but keeps them aside (cuts, trims, speed and
+  // places included), so checking it again puts them back as they were; a file that was never on it is added whole.
+  // Each toggle is one undo step.
+  const toggleMedia = (m: Media) => {
+    const on = used.has(m.id)
+    play('toggle', { direction: on ? 'back' : 'forward' })
+    setProject(p => (on ? parkMedia(p, m.id) : unparkMedia(p, m)))
+  }
   // Delete: the selected range (ripple, all tracks) or else the selected clip.
   const del = () => {
     if (range) {
@@ -183,9 +216,10 @@ function App() {
   const crop = () => {
     if (!range) return
     play('close', { emphasis: 'strong' })
-    change(cropRange(project, range.a, range.b), 0)
+    const next = cropRange(project, range.a, range.b)
+    change(next, 0)
     setRange(null)
-    setZoom(0) // clamps to the zoom-out limit, so the new edit fits
+    if (viewW) setZoom(zoomToFit(viewW, projectDuration(next)))
   }
   const undo = () => history.canUndo && (play('navigate', { direction: 'back', emphasis: 'subtle' }), history.undo())
   const redo = () => history.canRedo && (play('navigate', { direction: 'forward', emphasis: 'subtle' }), history.redo())
@@ -218,7 +252,7 @@ function App() {
         .catch(() => wave({ peaks: undefined, peaksDone: 1 })) // the waveform is decoration; playback and export don't need it
     }
     setProject(p => {
-      let audioEnd = Math.max(0, ...layoutFree(p.audio.filter(c => !laneOf(c))).map(x => x.end))
+      let audioEnd = audio1End(p)
       const audio = ok.filter(m => !m.hasVideo).map(m => {
         const c = newClip(m, audioEnd)
         audioEnd += m.duration
@@ -342,7 +376,7 @@ function App() {
     }
   }
 
-  const bin = (kind: 'video' | 'audio') => Object.values(media).filter(m => (kind === 'video') === m.hasVideo)
+  const bin = (kind: 'video' | 'audio') => Object.values(media).filter(m => (kind === 'video') === m.hasVideo && (!m.removed || used.has(m.id)))
   const iconBtn = 'grid size-8 place-items-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 disabled:pointer-events-none'
 
   return (
@@ -406,8 +440,10 @@ function App() {
                   <AnimatePresence initial={false}>
                     {bin(kind).map(m => (
                       <motion.div key={m.id} layout="position" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="group min-w-0">
-                        {/* drag onto any timeline lane; a native draggable div so the animated wrapper's drag props stay off */}
-                        <div
+                        {/* drag onto any timeline lane (a native draggable, so the animated wrapper's drag props stay off);
+                            right-click to remove the file */}
+                        <ContextMenu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
+                        <ContextMenu.Trigger
                           draggable
                           onDragStart={e => {
                             e.dataTransfer.setData(MEDIA_MIME, m.id)
@@ -421,9 +457,17 @@ function App() {
                           ) : (
                             <div className="grid size-full place-items-center bg-emerald-50 text-emerald-700"><Music size={16} /></div>
                           )}
-                          {used.has(m.id) && (
-                            <Tip label="Used in the timeline"><span className="absolute top-1 left-1 grid size-4 place-items-center rounded-xs bg-accent text-ink"><Check size={10} strokeWidth={3} /></span></Tip>
-                          )}
+                          {/* on the timeline or not: uncheck to set its clips aside, check to put them back (or add it) */}
+                          <Tip label={used.has(m.id) ? 'On the timeline · uncheck to set its clips aside' : parked.has(m.id) ? 'Set aside · check to put its clips back' : 'Not on the timeline · check to add it'}>
+                            <button
+                              onClick={() => toggleMedia(m)}
+                              aria-pressed={used.has(m.id)}
+                              aria-label={used.has(m.id) ? 'Take off the timeline' : 'Put on the timeline'}
+                              className={`absolute top-1 left-1 grid size-4 place-items-center rounded-xs transition-[opacity,color] ${used.has(m.id) ? 'bg-accent text-ink' : `bg-white/90 text-transparent ring-1 ring-ink/25 hover:text-ink/40 ${parked.has(m.id) ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}`}
+                            >
+                              <Check size={10} strokeWidth={3} />
+                            </button>
+                          </Tip>
                           <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{fmt(m.duration)}</span>
                           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                             {m.hasVideo && (
@@ -448,7 +492,17 @@ function App() {
                         </div>
                         <div className="mt-1 truncate text-[11px]" title={m.name}>{m.name}</div>
                         {m.hasVideo && <div className="text-[10px] text-ink/40 tabular-nums">{m.width}×{m.height}</div>}
-                        </div>
+                        </ContextMenu.Trigger>
+                        <ContextMenu.Portal>
+                          <ContextMenu.Positioner className="z-20 outline-none">
+                            <ContextMenu.Popup className={`${popup} w-44`}>
+                              <ContextMenu.Item className={menuItem} onClick={() => askRemoveMedia(m.id)}>
+                                <span className="flex items-center gap-2"><Trash2 size={13} /> Remove</span>
+                              </ContextMenu.Item>
+                            </ContextMenu.Popup>
+                          </ContextMenu.Positioner>
+                        </ContextMenu.Portal>
+                        </ContextMenu.Root>
                       </motion.div>
                     ))}
                   </AnimatePresence>
@@ -594,7 +648,7 @@ function App() {
               <div className="flex-1" />
               <Tip label="Zoom to fit"><button className={ghost} onClick={fitZoom} disabled={!duration} data-cuelume-tap="" data-cuelume-emphasis="subtle"><Maximize2 size={13} /></button></Tip>
               <Tip label="Zoom out"><button className={ghost} onClick={() => zoomBy(1 / 1.5)} disabled={!duration}><ZoomOut size={14} /></button></Tip>
-              <Slider label="Zoom" value={Math.log(pps)} min={Math.log(zoomMin)} max={Math.log(zoomMax)} step={0.01} onChange={v => setZoom(Math.exp(v))} disabled={!duration} />
+              <Slider label="Zoom" value={Math.log(pps)} min={Math.log(zoomLo)} max={Math.log(zoomHi)} step={0.01} onChange={v => setZoom(Math.exp(v))} disabled={!duration} />
               <Tip label="Zoom in"><button className={ghost} onClick={() => zoomBy(1.5)} disabled={!duration}><ZoomIn size={14} /></button></Tip>
             </>
           }
@@ -617,6 +671,36 @@ function App() {
       </AnimatePresence>
 
       {/* Closing (Cancel or Esc) aborts the export; finishing closes it from state. */}
+      <AlertDialog.Root open={!!removing?.open} onOpenChange={open => !open && setRemoving(r => r && { ...r, open: false })}>
+        <AlertDialog.Portal>
+          <AlertDialog.Backdrop className={dialogBackdrop} />
+          <AlertDialog.Popup className={dialogPopup}>
+            {removing && (
+              <>
+                <div className="grid gap-1">
+                  <AlertDialog.Title className="truncate text-sm font-semibold">Remove {media[removing.id]?.name}?</AlertDialog.Title>
+                  <AlertDialog.Description className="text-[11px] text-ink/50">
+                    It's used by {removing.clips} {removing.clips === 1 ? 'clip' : 'clips'} on the timeline, which will be removed too. You can undo this.
+                  </AlertDialog.Description>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <AlertDialog.Close className={pill}>Cancel</AlertDialog.Close>
+                  <button
+                    className="inline-flex h-8 items-center rounded-md bg-playhead/10 px-3 text-[11px] font-semibold text-playhead hover:bg-playhead/15"
+                    onClick={() => {
+                      removeMedia(removing.id)
+                      setRemoving({ ...removing, open: false })
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              </>
+            )}
+          </AlertDialog.Popup>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
       <AlertDialog.Root open={progress !== null} onOpenChange={open => !open && abortRef.current?.abort()}>
         <AlertDialog.Portal>
           <AlertDialog.Backdrop className={dialogBackdrop} />

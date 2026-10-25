@@ -16,6 +16,7 @@ export type Media = {
   thumb?: string
   peaks?: Float32Array // waveform: loudest sample per 1/PEAKS_PER_SEC s, filled in after import (-1 = not read yet)
   peaksDone?: number // share of the audio read into peaks, 0..1 (1 also when reading failed)
+  removed?: boolean // taken out of the bin; kept in memory so undo can bring its clips back (which shows it again)
 }
 
 export const PEAKS_PER_SEC = 50
@@ -44,6 +45,8 @@ export type Project = {
   aspect: Aspect
   fit: Fit
   fps: number
+  // Clips of files unchecked in the bin, set aside with where they were (start = timeline time) until it's checked again.
+  parked?: { track: 'video' | 'overlay' | 'audio'; clip: Clip }[]
 }
 
 export const emptyProject = (): Project => ({
@@ -112,6 +115,15 @@ function insertVideo(video: Clip[], clip: Clip, t: number, at = t + clipLength(c
   const k = placed.filter(x => (x.start + x.end) / 2 < at).length
   const start = Math.max(k ? placed[k - 1].end : 0, Math.min(t, placed[k]?.start ?? Infinity))
   return packVideo([...placed.slice(0, k), { clip: { ...clip, lane: undefined }, start }, ...placed.slice(k)])
+}
+
+// Put a clip back into Video 1 at time t, the exact inverse of taking it out: everything from t on moves right by its
+// length. (If something has since come to overlap t, the clip goes right after it.)
+function restoreVideo(video: Clip[], clip: Clip, t: number): Clip[] {
+  const len = clipLength(clip)
+  const items = layoutVideo(video).map(x => ({ clip: x.clip, start: x.start >= t - 1e-6 ? x.start + len : x.start }))
+  const k = items.filter(x => x.start < t - 1e-6).length
+  return packVideo([...items.slice(0, k), { clip, start: t }, ...items.slice(k)])
 }
 
 // Slide a Video 1 clip so it starts at `start` (not before the clip in front of it ends); the clips after it ride along.
@@ -265,6 +277,13 @@ export function trimClip(c: Clip, edge: 'in' | 'out', d: number, mediaDuration: 
   return { ...c, in: inn, start: anchor ? c.start + (inn - c.in) / c.speed : c.start }
 }
 
+// Drag a Video 1 clip's left edge by d timeline-seconds: its start moves into (or back out of) the gap in front of it,
+// while its end and every clip after it stay put. It can't grow past the clip in front.
+export function trimVideoIn(c: Clip, d: number, mediaDuration: number): Clip {
+  const t = trimClip({ ...c, start: c.gap ?? 0 }, 'in', d, mediaDuration, true)
+  return { ...c, in: t.in, gap: t.start > 1e-6 ? t.start : undefined }
+}
+
 // Free clips (overlay / audio) move in time and across lanes of their kind. Video 1 clips slide or move with slideVideoClip / moveVideoClip.
 export function moveClip(p: Project, id: string, d: number, laneDelta = 0): Project {
   const kind = p.overlay.some(c => c.id === id) ? 'overlay' : 'audio'
@@ -340,4 +359,41 @@ export function placeClip(p: Project, m: Media, target: DropTarget, t: number): 
     return { ...p, video: insertVideo(p.video, newClip(m), Math.max(0, t), t) }
   }
   return { ...p, [target.kind]: [...p[target.kind], { ...newClip(m, Math.max(0, t)), lane: target.lane }] }
+}
+
+// Where a new sound goes on Audio 1: right after the last clip there.
+export const audio1End = (p: Project) => Math.max(0, ...layoutFree(p.audio.filter(c => !laneOf(c))).map(x => x.end))
+
+// Uncheck a file in the bin: take its clips off the timeline (Video 1 closes up as when deleting them) but set them
+// aside with where they were, so checking it again puts them back.
+export function parkMedia(p: Project, mediaId: string): Project {
+  const mine = (c: Clip) => c.mediaId === mediaId
+  const parked = [
+    ...layoutVideo(p.video).filter(x => mine(x.clip)).map(x => ({ track: 'video' as const, clip: { ...x.clip, start: x.start } })),
+    ...p.overlay.filter(mine).map(clip => ({ track: 'overlay' as const, clip })),
+    ...p.audio.filter(mine).map(clip => ({ track: 'audio' as const, clip })),
+  ]
+  if (!parked.length) return p
+  const q = parked.reduce((q, x) => removeClip(q, x.clip.id), p)
+  return { ...q, parked: [...(p.parked ?? []).filter(x => !mine(x.clip)), ...parked] }
+}
+
+// Check a file in the bin: put its set-aside clips back where they were (Video 1 clips slot in at their old times, the
+// others return to their tracks, re-adding a track if it was removed since). A file that was never on the timeline is
+// added whole, as an import would: a video at the end of Video 1, a sound after the last clip on Audio 1.
+export function unparkMedia(p: Project, m: Media): Project {
+  const mine = (p.parked ?? []).filter(x => x.clip.mediaId === m.id)
+  const rest = { ...p, parked: (p.parked ?? []).filter(x => x.clip.mediaId !== m.id) }
+  if (!mine.length) return m.hasVideo ? { ...rest, video: [...rest.video, newClip(m)] } : { ...rest, audio: [...rest.audio, newClip(m, audio1End(rest))] }
+  const back = (track: 'video' | 'overlay' | 'audio') => mine.filter(x => x.track === track).map(x => x.clip)
+  const video = back('video').sort((a, b) => a.start - b.start).reduce((v, c) => restoreVideo(v, c, c.start), rest.video)
+  const [overlay, audio] = [back('overlay'), back('audio')]
+  return {
+    ...rest,
+    video,
+    overlay: [...rest.overlay, ...overlay],
+    audio: [...rest.audio, ...audio],
+    overlayTracks: Math.max(rest.overlayTracks, ...overlay.map(c => laneOf(c) + 1)),
+    audioTracks: Math.max(rest.audioTracks, ...audio.map(c => laneOf(c) + 1)),
+  }
 }
