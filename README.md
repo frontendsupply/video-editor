@@ -21,7 +21,7 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 | Playback loop outside React | Playhead and clock are written straight to the DOM: zero re-renders while playing |
 | Shared `drawFrame()` | What you see in the preview is exactly what you export |
 | Decode straight to output size | 4K sources stay cheap when exporting 1080p |
-| Audio mixed (`OfflineAudioContext`) in parallel with video encoding | Export time ≈ video encode time |
+| Audio mixed (`OfflineAudioContext`) in 30-second chunks, in step with the video encoding | Export time ≈ video encode time, and memory stays flat however long the edit is |
 | Stream to disk (`showSaveFilePicker`, Chrome/Edge) | Long exports don't fill RAM; cancel discards the partial file |
 | Timeline renders only what's near the view | Zooming into a multi-hour clip costs the same as a short one |
 | Waveforms read in Web Workers, in parallel slices | A 4-hour file's waveform is ready in seconds without blocking the UI |
@@ -73,6 +73,7 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 Done lately:
 
+- **Long exports**: the audio mix renders in 30-second chunks that keep pace with the video, decoding only each clip's slice, so hour-long exports use as little memory as short ones.
 - **Clip Preview**: mark In/Out on one file, add that part to the timeline or save it as a bin clip.
 - **Saving and restoring projects**: autosave on this device; files reconnect through their handles, or are matched by name and size when picked again.
 - **Selecting and cutting** across all tracks: the Select bar, range block, start/end marks, crop and region export.
@@ -86,7 +87,6 @@ Done lately:
 Next:
 
 1. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
-2. **Long exports**: mix audio in chunks, so multi-hour exports don't run out of memory.
-3. **Export in a Worker**: keeps the UI fully smooth during long exports.
-4. **Lossless fast path**: untouched stretches copy packets without re-encoding.
-5. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
+2. **Export in a Worker**: keeps the UI fully smooth during long exports.
+3. **Lossless fast path**: untouched stretches copy packets without re-encoding.
+4. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
