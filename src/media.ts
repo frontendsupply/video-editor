@@ -1,4 +1,4 @@
-import { ALL_FORMATS, BlobSource, CanvasSink, Input } from 'mediabunny'
+import { ALL_FORMATS, BlobSource, CanvasSink, Input, type InputVideoTrack } from 'mediabunny'
 import { PEAKS_PER_SEC, type Media } from './model'
 import type { PeaksChunk, PeaksJob } from './peaks.worker'
 
@@ -21,11 +21,23 @@ export async function importFile(file: File): Promise<Media> {
       hasVideo: !!video,
       hasAudio: !!audio && (await audio.canDecode()),
     }
-    if (video) {
-      const frame = await new CanvasSink(video, { height: 96 }).getCanvas(Math.min(1, duration / 2))
-      if (frame) media.thumb = URL.createObjectURL(await toBlob(frame.canvas))
-    }
+    if (video) media.thumb = await frameAt(video, Math.min(1, duration / 2))
     return media
+  } finally {
+    input.dispose()
+  }
+}
+
+// A small JPEG of the frame at `t` (a blob: URL), for bin cards.
+const frameAt = async (video: InputVideoTrack, t: number) => {
+  const frame = await new CanvasSink(video, { height: 96 }).getCanvas(t)
+  return frame ? URL.createObjectURL(await toBlob(frame.canvas)) : undefined
+}
+export async function thumbnail(file: File, t: number) {
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
+  try {
+    const video = await input.getPrimaryVideoTrack()
+    return video ? await frameAt(video, t) : undefined
   } finally {
     input.dispose()
   }

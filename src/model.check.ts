@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength,
   type Clip, type Project,
 } from './model.ts'
 
@@ -171,5 +171,12 @@ eq([lengthLabel(3.284, 3), lengthLabel(3.284, 1), lengthLabel(5520, 0)], ['3.28s
 
 // A saved project finds its files again by name and size.
 eq([sameFile({ name: 'a.mp4', size: 10 }, { name: 'a.mp4', size: 10 }), sameFile({ name: 'a.mp4', size: 10 }, { name: 'a.mp4', size: 11 }), sameFile({ name: 'a.mp4', size: 10 }, { name: 'b.mp4', size: 10 })], [true, false, false], 'same file')
+
+// A clip saved from Clip Preview is just its part of the file, on the timeline and in the bin.
+{
+  const part = { id: 'p', duration: 10, range: [2, 5.5] } as never
+  const c = newClip(part)
+  eq([c.in, c.out, binLength(part), binLength({ duration: 10 } as never)], [2, 5.5, 3.5, 10], 'saved clip range')
+}
 
 console.log('model ok')

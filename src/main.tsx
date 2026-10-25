@@ -9,31 +9,31 @@ import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { bind, play } from 'cuelume'
 import {
-  Check, ChevronDown, ChevronLeft, ChevronRight, Film, FilePlus2, History, Maximize2, Music, Pause, Play, Plus, Redo2,
-  Scissors, SkipBack, SkipForward, Trash2, Undo2, Upload, ZoomIn, ZoomOut,
+  Check, ChevronDown, ChevronLeft, ChevronRight, Film, FilePlus2, History, Maximize2, MonitorPlay, Music, Pause, Play, Plus, Redo2,
+  Scissors, SkipBack, SkipForward, Trash2, Undo2, Upload, X, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { exportProject } from './export'
 import { useHistory } from './history'
-import { computePeaks, importFile } from './media'
+import { ClipPreview, type Marks } from './ClipPreview'
+import { computePeaks, importFile, thumbnail } from './media'
 import {
-  audio1End, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip, trackName,
-  projectDuration, removeClip, rippleDelete, sameFile, splitAt, splitRange, timecode, unparkMedia, updateClip,
+  audio1End, binLength, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip, trackName,
+  projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, unparkMedia, updateClip,
   type Clip, type DropTarget, type ExportPreset, type Media, type Project, type SplitTarget,
 } from './model'
 import { Player } from './player'
-import { clear, load, readHandles, save, toMedia, type Saved } from './store'
+import { clear, isFileOf, load, readHandles, save, toMedia, type Saved } from './store'
 import { MEDIA_MIME, Timeline, zoomToFit, type Range } from './Timeline'
-import { dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
+import { dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, OWN_KEYS, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
 import './styles.css'
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`
 const MOD = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
-// Keys inside these belong to the control, not to the editor shortcuts.
-const OWN_KEYS = 'input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="tab"], [role="alertdialog"]'
 const ZOOM_MIN = 2 // empty timeline; with clips, the zoom-out limit fits the whole edit
 const ZOOM_MAX = 200
+const monitorTab = '-mb-px flex items-center border-r border-line px-3 font-medium text-muted hover:text-ink'
 // What the file picker offers (any file can still be chosen).
 const PICK = [{ description: 'Video and audio', accept: { 'video/*': ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'], 'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.flac'] } }]
 
@@ -56,6 +56,9 @@ function App() {
   // A file being removed from the bin while it has clips: closing only flips `open`, so the text stays while it animates out.
   const [removing, setRemoving] = useState<{ id: string; clips: number; open: boolean } | null>(null)
   const [askNew, setAskNew] = useState(false) // confirming New project
+  // The file open in Clip Preview with its marked part, and which preview is showing.
+  const [source, setSource] = useState<{ id: string; marks: Marks } | null>(null)
+  const [monitor, setMonitor] = useState<'sequence' | 'clip'>('sequence')
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
@@ -196,7 +199,7 @@ function App() {
   function locate(r: Restore, items: Picked[]) {
     const files = new Map(r.files)
     const media = r.saved.media.map(m => {
-      const found = !files.has(m.id) && items.find(x => sameFile(m, x.file))
+      const found = !files.has(m.id) && items.find(x => isFileOf(m, x.file))
       if (!found) return m
       files.set(m.id, found.file)
       return found.handle ? { ...m, handle: found.handle } : m
@@ -207,6 +210,38 @@ function App() {
     if (files.size === media.length) apply(saved, files)
     else setRestore({ ...r, saved, files })
   }
+  // Clip Preview: open a bin entry (a saved clip opens marked to its part), add the marked part to the timeline, or
+  // save it to the bin as a clip of its own.
+  const openClip = (m: Media) => {
+    play('open', { emphasis: 'subtle' })
+    playerRef.current!.pause()
+    setSource({ id: m.id, marks: { a: m.range?.[0] ?? 0, b: m.range?.[1] ?? m.duration } })
+    setMonitor('clip')
+  }
+  const closeClip = () => {
+    setSource(null)
+    setMonitor('sequence')
+  }
+  const sourceMedia = source && media[source.id] && !media[source.id].removed ? media[source.id] : null
+  useEffect(() => void (source && !sourceMedia && closeClip()), [sourceMedia]) // removed from the bin, or New project
+  const addPart = () => {
+    const { a, b } = source!.marks
+    const clip = { ...newClip(sourceMedia!), in: a, out: b }
+    play('tap', { emphasis: 'strong' })
+    if (sourceMedia!.hasVideo) setProject(p => ({ ...p, video: [...p.video, clip] }))
+    else setProject(p => ({ ...p, audio: [...p.audio, { ...clip, start: playerRef.current!.t }] }))
+  }
+  const savePart = () => {
+    const m = sourceMedia!
+    const { a, b } = source!.marks
+    const id = crypto.randomUUID()
+    const name = `${m.file.name} · ${fmt(a)}–${fmt(b)}`
+    play('success', { emphasis: 'subtle' })
+    setMedia(ms => ({ ...ms, [id]: { ...m, id, name, range: [a, b], removed: false } }))
+    if (m.hasVideo) thumbnail(m.file, a).then(thumb => thumb && setMedia(ms => (ms[id] ? { ...ms, [id]: { ...ms[id], thumb } } : ms)))
+    toast.add({ title: 'Saved to the media bin', description: name })
+  }
+
   // New project: an empty timeline and bin (the files on disk aren't touched). The old one is gone from storage too.
   const newProject = () => {
     play('close', { emphasis: 'strong' })
@@ -301,9 +336,11 @@ function App() {
     setRange(r.b - r.a > 0.01 ? r : null)
   }
 
-  // A file's waveform, read in the background after import (or after a restore, if it wasn't finished).
+  // A file's waveform, read in the background after import (or after a restore, if it wasn't finished). Clips saved
+  // from the same file share it.
   function readPeaks(m: Media) {
-    const wave = (patch: Partial<Media>) => setMedia(ms => ({ ...ms, [m.id]: { ...ms[m.id], ...patch } }))
+    const wave = (patch: Partial<Media>) =>
+      setMedia(ms => Object.fromEntries(Object.entries(ms).map(([id, x]) => [id, x.file === m.file ? { ...x, ...patch } : x])))
     computePeaks(m.file, m.duration, (peaks, done) => wave({ peaks, peaksDone: done }))
       .then(peaks => wave({ peaks, peaksDone: 1 }))
       .catch(() => wave({ peaks: undefined, peaksDone: 1 })) // the waveform is decoration; playback and export don't need it
@@ -527,6 +564,7 @@ function App() {
                         <ContextMenu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
                         <ContextMenu.Trigger
                           draggable
+                          onDoubleClick={() => openClip(m)}
                           onDragStart={e => {
                             e.dataTransfer.setData(MEDIA_MIME, m.id)
                             e.dataTransfer.effectAllowed = 'copy'
@@ -550,7 +588,7 @@ function App() {
                               <Check size={10} strokeWidth={3} />
                             </button>
                           </Tip>
-                          <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{fmt(m.duration)}</span>
+                          <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{fmt(binLength(m))}</span>
                           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                             {m.hasVideo && (
                               <Tip label="Append to video track">
@@ -577,7 +615,10 @@ function App() {
                         </ContextMenu.Trigger>
                         <ContextMenu.Portal>
                           <ContextMenu.Positioner className="z-20 outline-none">
-                            <ContextMenu.Popup className={`${popup} w-44`}>
+                            <ContextMenu.Popup className={`${popup} w-48`}>
+                              <ContextMenu.Item className={menuItem} onClick={() => openClip(m)}>
+                                <span className="flex items-center gap-2"><MonitorPlay size={13} /> Open in Clip Preview</span>
+                              </ContextMenu.Item>
                               <ContextMenu.Item className={menuItem} onClick={() => askRemoveMedia(m.id)}>
                                 <span className="flex items-center gap-2"><Trash2 size={13} /> Remove</span>
                               </ContextMenu.Item>
@@ -598,11 +639,43 @@ function App() {
 
         {/* sequence preview with transport and split */}
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface">
-          <div className="flex h-8 shrink-0 items-center justify-between border-b border-line bg-canvas px-3 text-[11px]">
-            <span className="font-semibold">Sequence preview</span>
-            <FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />
+          {/* Sequence preview, and Clip Preview while a file is open in it */}
+          <div className="flex h-8 shrink-0 items-stretch border-b border-line bg-canvas text-[11px]">
+            <button onClick={() => setMonitor('sequence')} className={`${monitorTab} ${monitor === 'sequence' ? 'bg-surface text-ink' : ''}`}>
+              Sequence preview
+            </button>
+            {sourceMedia && (
+              <div className={`${monitorTab} gap-1 pr-1 ${monitor === 'clip' ? 'bg-surface text-ink' : ''}`}>
+                <button onClick={() => (playerRef.current!.pause(), setMonitor('clip'))} className="flex min-w-0 items-center gap-1.5">
+                  <MonitorPlay size={12} className="shrink-0" />
+                  <span className="max-w-48 truncate">{sourceMedia.name}</span>
+                </button>
+                <Tip label="Close Clip Preview">
+                  <button onClick={closeClip} aria-label="Close Clip Preview" className="grid size-4 place-items-center text-muted hover:bg-ink/10 hover:text-ink">
+                    <X size={11} />
+                  </button>
+                </Tip>
+              </div>
+            )}
+            <div className="flex-1" />
+            {monitor === 'sequence' && (
+              <div className="flex items-center px-3">
+                <FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />
+              </div>
+            )}
           </div>
-          <div className="relative min-h-0 flex-1">
+          {monitor === 'clip' && sourceMedia && (
+            <ClipPreview
+              key={sourceMedia.id}
+              media={sourceMedia}
+              marks={source!.marks}
+              fps={project.fps}
+              onMarks={marks => setSource(s => s && { ...s, marks })}
+              onAdd={addPart}
+              onSave={savePart}
+            />
+          )}
+          <div className={`relative min-h-0 flex-1 ${monitor === 'clip' ? 'hidden' : ''}`}>
             <div className="absolute inset-3 flex items-center justify-center">
               <canvas ref={canvasRef} className={`max-h-full max-w-full rounded-md ring-1 ring-line ${duration ? '' : 'invisible'}`} />
             </div>
@@ -634,7 +707,7 @@ function App() {
               )}
             </AnimatePresence>
           </div>
-          <div className="flex h-8 shrink-0 items-center gap-2 border-t border-line bg-canvas px-1.5">
+          <div className={`flex h-8 shrink-0 items-center gap-2 border-t border-line bg-canvas px-1.5 ${monitor === 'clip' ? 'hidden' : ''}`}>
             <span ref={timeRef} className="w-28 pl-1 text-[11px] font-semibold tabular-nums">0:00:00.000</span>
             <div className="flex flex-1 items-center justify-center gap-0.5">
               <Tip label="Go to start (Home)"><button className={headerIcon} onClick={() => seek(0)} disabled={!duration} data-cuelume-navigate="back"><SkipBack size={13} /></button></Tip>
@@ -846,9 +919,10 @@ function RestorePanel({ restore: { saved, files, asked }, onReconnect, onLocate,
   onLocate: () => void
   onFresh: () => void
 }) {
-  const missing = saved.media.filter(m => !files.has(m.id))
-  const ask = !asked && missing.some(m => m.handle)
-  const names = missing.slice(0, 3).map(m => m.name).join(', ') + (missing.length > 3 ? ` and ${missing.length - 3} more` : '')
+  const lost = saved.media.filter(m => !files.has(m.id))
+  const ask = !asked && lost.some(m => m.handle)
+  const missing = [...new Set(lost.map(m => m.fileName ?? m.name))] // a file and the clips saved from it count once
+  const names = missing.slice(0, 3).join(', ') + (missing.length > 3 ? ` and ${missing.length - 3} more` : '')
   const clips = saved.project.video.length + saved.project.overlay.length + saved.project.audio.length
   const when = new Date(saved.savedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
   return (
