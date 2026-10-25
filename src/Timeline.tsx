@@ -3,6 +3,7 @@ import { play } from 'cuelume'
 import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
+import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
 import { Toggle } from '@base-ui/react/toggle'
 import { ArrowLeftRight, ChevronRight, Crop, Download, Film, Layers, Magnet, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
@@ -49,6 +50,7 @@ type Props = {
 
 const TICK_STEPS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600]
 const MARGIN = 16 // left gutter (ml-4) so the playhead pill isn't clipped at 0s
+const HEAD = 112 // the track-name column (w-28), pinned on the left while the lanes scroll under it
 const ROOM = 160 // px past the last clip: the "+" tile and room to drag
 const FIT = 0.9 // fully zoomed out, the whole edit fills this much of the visible timeline
 // Pixels per second at which the whole edit fills FIT of the visible timeline: the zoom-out limit.
@@ -123,7 +125,7 @@ export function Timeline(props: Props) {
   // Content always fills the visible width, and only scrolls when the clips don't fit.
   useEffect(() => {
     const el = props.scrollRef.current!
-    const ro = new ResizeObserver(() => props.onViewW(el.clientWidth))
+    const ro = new ResizeObserver(() => props.onViewW(el.clientWidth - HEAD))
     ro.observe(el)
     const onScroll = () => setTile(Math.floor(el.scrollLeft / TILE))
     el.addEventListener('scroll', onScroll, { passive: true })
@@ -604,16 +606,18 @@ export function Timeline(props: Props) {
 
   return (
     <div className={`${card} flex shrink-0 flex-col overflow-hidden select-none`} style={{ height: props.height }}>
-      {/* both columns scroll vertically together when there are many tracks */}
-      <div className="flex min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-        <div className="min-h-full w-28 shrink-0 self-start border-r border-ink/6 pb-8 text-[11px] font-medium text-ink/60">
-          <div className="flex h-6 items-center border-b border-ink/6 px-2.5 text-[10px] tracking-wide text-ink/40 uppercase">Timeline</div>
-          {rows.map(r => <div key={r.key} className={`${r.size} ${r.band ? 'border-y border-ink/6' : ''}`}>{r.header}</div>)}
-        </div>
+      {/* One scroll area for both directions: the track names stay pinned on the left, and the scrollbars sit in their
+          own thin strips along the bottom and right edges, outside the tracks, so they're always in reach. */}
+      <ScrollArea.Root className="relative min-h-0 flex-1 pr-2 pb-2">
+        <ScrollArea.Viewport ref={props.scrollRef} className="h-full overscroll-none">
+          <ScrollArea.Content className="flex">
+          <div className="sticky left-0 z-40 w-28 shrink-0 border-r border-ink/6 bg-white pb-8 text-[11px] font-medium text-ink/60">
+            <div className="flex h-6 items-center border-b border-ink/6 px-2.5 text-[10px] tracking-wide text-ink/40 uppercase">Timeline</div>
+            {rows.map(r => <div key={r.key} className={`${r.size} ${r.band ? 'border-y border-ink/6' : ''}`}>{r.header}</div>)}
+          </div>
 
-        <div ref={props.scrollRef} className="min-h-full min-w-0 flex-1 self-start overflow-x-auto overflow-y-hidden">
           <ContextMenu.Root>
-          <ContextMenu.Trigger ref={contentRef} className="relative ml-4 pb-8 cursor-text" style={{ width }} onPointerDown={scrub} onContextMenu={openMenu}>
+          <ContextMenu.Trigger ref={contentRef} className="relative ml-4 shrink-0 pb-8 cursor-text" style={{ width }} onPointerDown={scrub} onContextMenu={openMenu}>
             {/* ruler: timecode labels + minor ticks every fifth of a step. Click or drag it to move the playhead. */}
             <div
               data-ruler
@@ -662,8 +666,9 @@ export function Timeline(props: Props) {
               </div>
             )}
 
-            {/* playhead: red line, time pill in the ruler, split button at its foot; moved by the player through the DOM */}
-            <div ref={props.playheadRef} className="pointer-events-none absolute top-0 bottom-0 left-0 z-20 w-0.5 -ml-px bg-playhead">
+            {/* playhead: red line, time pill in the ruler, split button at its foot (kept in view when the tracks are taller
+                than the timeline); moved by the player through the DOM */}
+            <div ref={props.playheadRef} className="pointer-events-none absolute top-0 bottom-0 left-0 z-20 flex w-0.5 -ml-px flex-col justify-end bg-playhead">
               <span ref={props.playheadLabelRef} style={{ transform: 'translateX(var(--nudge, 0px))' }} className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-white px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-playhead tabular-nums ring-1 ring-playhead/25">
                 0:00:00.0
               </span>
@@ -693,7 +698,7 @@ export function Timeline(props: Props) {
                     onPointerDown={e => e.stopPropagation()}
                     onClick={() => props.onSplit('all', true)}
                     aria-label="Split all tracks at playhead"
-                    className="pointer-events-auto absolute bottom-1 left-1 grid size-6 place-items-center rounded-sm bg-white text-ink/70 ring-1 ring-ink/15 hover:text-ink hover:ring-ink/30"
+                    className="pointer-events-auto sticky bottom-1 mb-1 ml-1 grid size-6 shrink-0 place-items-center self-start rounded-sm bg-white text-ink/70 ring-1 ring-ink/15 hover:text-ink hover:ring-ink/30"
                   >
                     <Scissors size={12} />
                   </button>
@@ -757,8 +762,15 @@ export function Timeline(props: Props) {
             </ContextMenu.Positioner>
           </ContextMenu.Portal>
           </ContextMenu.Root>
-        </div>
-      </div>
+          </ScrollArea.Content>
+        </ScrollArea.Viewport>
+        <ScrollArea.Scrollbar orientation="horizontal" className="mb-0.5 h-1.5 rounded-xs bg-ink/4" style={{ insetInlineStart: HEAD }}>
+          <ScrollArea.Thumb className="h-full rounded-xs bg-ink/25 transition-colors hover:bg-ink/45 active:bg-ink/50" />
+        </ScrollArea.Scrollbar>
+        <ScrollArea.Scrollbar orientation="vertical" className="mr-0.5 w-1.5 rounded-xs bg-ink/4">
+          <ScrollArea.Thumb className="w-full rounded-xs bg-ink/25 transition-colors hover:bg-ink/45 active:bg-ink/50" />
+        </ScrollArea.Scrollbar>
+      </ScrollArea.Root>
       <div className="flex h-8 shrink-0 items-center gap-1 border-t border-ink/6 px-2">
         {props.footer}
         <Tip label={props.snapping ? 'Snapping on (N). Hold ⌥ to drag freely' : 'Snapping off (N)'}>
