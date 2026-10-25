@@ -23,6 +23,7 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 | Shared `drawFrame()` | What you see in the preview is exactly what you export |
 | Decode straight to output size | 4K sources stay cheap when exporting 1080p |
 | Lossless copy when nothing needs re-encoding | Plain cuts of files that share one encoding export at disk speed, bit for bit |
+| Frames that need no drawing go to the encoder as decoded | Exports below 720p run about 3× faster (the encoder reading a canvas back costs ~3 ms a frame), and keep the file's full detail |
 | Export runs in a Web Worker (video decode, draw, encode, mux, file writes) | The editor stays responsive while exporting; only the audio mix, which needs Web Audio, stays on the page |
 | Audio mixed (`OfflineAudioContext`) in 30-second chunks, in step with the video encoding | Export time ≈ video encode time, and memory stays flat however long the edit is |
 | Stream to disk (`showSaveFilePicker`, Chrome/Edge) | Long exports don't fill RAM; cancel discards the partial file |
@@ -82,6 +83,7 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 Done lately:
 
+- **Faster rendered exports**: a frame that is just a file's own frame skips the canvas and goes to the encoder as decoded; a 2-hour 320×180 export takes 2 minutes instead of 10.
 - **Software decoding fallback**: files the browser can't decode are converted once on this device into a playable MP4.
 - **Lossless fast path**: plain cuts of files that share one encoding are copied packet for packet, no re-encoding.
 - **Export in a Worker**: video frames, encoding, muxing and file writes run off the page, so the editor stays responsive.

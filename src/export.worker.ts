@@ -2,9 +2,9 @@
 // the GPU's hardware encoder), muxing, and writing the file. Web Audio, which the mix needs, doesn't exist in workers,
 // so the page renders the audio in chunks and posts them in (see export.ts).
 import {
-  ALL_FORMATS, AudioSample, AudioSampleSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, EncodedPacketSink, EncodedVideoPacketSource,
-  Input, Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, getFirstEncodableAudioCodec,
-  getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
+  ALL_FORMATS, AudioSample, AudioSampleSource, BlobSource, BufferTarget, CanvasSink, EncodedPacketSink, EncodedVideoPacketSource, Input,
+  Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, VideoSample, VideoSampleSink, VideoSampleSource,
+  getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
 } from 'mediabunny'
 import {
   MIX_RATE, drawFrame, exportSize, fitRect, laneOf, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
@@ -73,14 +73,14 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
 
     // Copy the video as it is when the edit and the files allow it (and the preset asks for full quality anyway).
     const plan = preset.quality === 'high' ? await copyPlan(p, media, W, H) : null
-    let video: CanvasSource | EncodedVideoPacketSource
+    let video: VideoSampleSource | EncodedVideoPacketSource
     let canvas: OffscreenCanvas | null = null
     if (plan) output.addVideoTrack((video = new EncodedVideoPacketSource(plan.codec))) // the files' own timing
     else {
       const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width: W, height: H, frameRate: p.fps, quality })
       if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video`)
       canvas = new OffscreenCanvas(W, H)
-      output.addVideoTrack((video = new CanvasSource(canvas, { codec: videoCodec, quality })), { frameRate: p.fps })
+      output.addVideoTrack((video = new VideoSampleSource({ codec: videoCodec, quality })), { frameRate: p.fps })
     }
     // No audio encoder in this browser: the mix is still taken, and dropped.
     const audioCodec = withAudio && (await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), { numberOfChannels: 2, sampleRate: MIX_RATE }))
@@ -90,7 +90,7 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
     started()
     try {
       if (plan) await copyVideo(plan, video as EncodedVideoPacketSource, projectDuration(p))
-      else await renderVideo(p, media, canvas!.getContext('2d')!, video as CanvasSource)
+      else await renderVideo(p, media, canvas!.getContext('2d')!, video as VideoSampleSource)
       video.close()
       if (withAudio) await mixDone
       commit = true
@@ -189,7 +189,11 @@ async function copyVideo({ config, pieces }: Plan, video: EncodedVideoPacketSour
 // One output frame at a time: black, then every active layer (Video 1, then overlays by lane, higher on top).
 // Each clip gets its own decoder stream, opened at its first frame and closed after its last, so only the
 // clips on screen at once are being decoded.
-async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: OffscreenCanvasRenderingContext2D, video: CanvasSource) {
+// A frame that is a file's own frame as it is (an upright file at the output size, nothing on top) skips the canvas:
+// the encoder reading a canvas back costs ~3 ms a frame, which held small exports to ~330 fps, and the round trip
+// through the canvas softens colour detail. Only when the edit is Video 1 alone, so the picture can't soften as an
+// overlay comes and goes; between clips it changes anyway.
+async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: OffscreenCanvasRenderingContext2D, video: VideoSampleSource) {
   const { width: W, height: H } = ctx.canvas
   const fps = p.fps
   const total = Math.ceil(projectDuration(p) * fps - 1e-6)
@@ -198,7 +202,8 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
   const layers = [...layoutVideo(p.video), ...overlays]
     .map(pl => ({ pl, m: media[pl.clip.mediaId], first: frameAt(pl.start), end: Math.min(total, frameAt(pl.end)) }))
     .filter(l => l.end > l.first)
-  type Stream = { input: Input; frames: AsyncGenerator<WrappedCanvas | null, void, unknown> }
+  const video1Only = layers.every(l => p.video.includes(l.pl.clip))
+  type Stream = { input: Input; frames: AsyncGenerator<VideoSample | WrappedCanvas | null, void, unknown> }
   const open = new Map<(typeof layers)[number], Stream>()
   const close = async (l: (typeof layers)[number]) => {
     const s = open.get(l)!
@@ -213,25 +218,40 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
       ac.signal.throwIfAborted()
       const t = f / fps
       drawFrame(ctx, null, 0, 0, p.fit) // black base (also the tail when audio outlasts the video)
+      let decoded: VideoSample | null = null
       for (const l of layers) {
         if (f < l.first || f >= l.end) continue
         let s = open.get(l)
         if (!s) {
           const input = new Input({ source: new BlobSource(l.m.file), formats: ALL_FORMATS })
           const track = (await input.getPrimaryVideoTrack())!
-          // Decode straight to the final on-screen size (GPU resize + rotation) so big sources stay cheap.
-          const r = fitRect(l.m.width, l.m.height, W, H, p.fit)
-          const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', poolSize: 2 })
           // Constant output frame rate: one source lookup per output frame (handles speed up and slow-mo alike).
           const times = Array.from({ length: l.end - l.first }, (_, i) => sourceTime(l.pl, (l.first + i) / fps))
-          s = { input, frames: sink.canvasesAtTimestamps(times) }
+          const asIs = video1Only && !(await track.getRotation()) && !(await track.getFlip()) &&
+            [await track.getCodedWidth(), await track.getCodedHeight(), await track.getDisplayWidth(), await track.getDisplayHeight()].join() === [W, H, W, H].join()
+          if (asIs) s = { input, frames: new VideoSampleSink(track).samplesAtTimestamps(times) }
+          else {
+            // Decode straight to the final on-screen size (GPU resize + rotation) so big sources stay cheap.
+            const r = fitRect(l.m.width, l.m.height, W, H, p.fit)
+            const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', poolSize: 2 })
+            s = { input, frames: sink.canvasesAtTimestamps(times) }
+          }
           open.set(l, s)
         }
         const { value: frame } = await s.frames.next()
-        drawFrame(ctx, frame?.canvas ?? null, l.m.width, l.m.height, p.fit, false)
+        if (!(frame instanceof VideoSample)) drawFrame(ctx, frame?.canvas ?? null, l.m.width, l.m.height, p.fit, false)
+        else if (frame.format === 'I420' || frame.format === 'NV12') decoded = frame // no alpha, nothing to convert
+        else drawFrame(ctx, frame.toCanvasImageSource(), W, H, p.fit, false), frame.close()
         if (f === l.end - 1) await close(l)
       }
-      await video.add(t, 1 / fps) // resolves when the encoder is ready for more (backpressure)
+      const sample = decoded ?? new VideoSample(ctx.canvas, { timestamp: t })
+      sample.setTimestamp(t)
+      sample.setDuration(1 / fps)
+      try {
+        await video.add(sample) // resolves when the encoder is ready for more (backpressure)
+      } finally {
+        sample.close()
+      }
       if (f === total - 1 || performance.now() - shown > 50) {
         shown = performance.now()
         post({ type: 'progress', fraction: (f + 1) / total, t })
