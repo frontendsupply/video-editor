@@ -27,7 +27,7 @@ export const dialogBackdrop =
 export const dialogPopup = `${card} fixed top-1/2 left-1/2 grid w-[min(380px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 gap-4 p-5 outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0`
 export const menuItem =
   'flex cursor-default items-center justify-between gap-4 rounded-sm px-2.5 py-1.5 outline-none select-none data-disabled:opacity-40 data-highlighted:bg-ink/6'
-const label = 'text-[11px] font-medium text-ink/50'
+const label = 'text-[11px] text-ink/50'
 const groupLabel = 'px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase'
 const FPS = [24, 25, 30, 60]
 
@@ -48,9 +48,9 @@ export function Select<T>(props: {
         props.onChange(v as T)
       }}
     >
-      <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5">
         <BaseSelect.Label className={label}>{props.label}</BaseSelect.Label>
-        <BaseSelect.Trigger className="flex h-8 items-center justify-between gap-2 rounded-md bg-ink/6 px-3 font-medium hover:bg-ink/10 data-popup-open:bg-ink/10">
+        <BaseSelect.Trigger className="flex h-6 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition-colors hover:bg-ink/5 data-popup-open:bg-ink/5">
           <BaseSelect.Value />
           <BaseSelect.Icon className="opacity-50">
             <ChevronsUpDown size={12} />
@@ -65,7 +65,7 @@ export function Select<T>(props: {
                 <BaseSelect.Item
                   key={String(it.value)}
                   value={it.value}
-                  className="grid cursor-default grid-cols-[14px_1fr] items-center gap-1.5 rounded-sm py-1.5 pr-3 pl-2 outline-none select-none data-highlighted:bg-ink/6"
+                  className="grid cursor-default grid-cols-[14px_1fr] items-center gap-1.5 rounded-sm py-1 pr-3 pl-2 text-[11px] outline-none select-none data-highlighted:bg-ink/6"
                 >
                   <BaseSelect.ItemIndicator className="col-start-1">
                     <Check size={12} />
@@ -88,30 +88,30 @@ export function Slider(props: {
   min?: number
   max?: number
   step?: number
-  format?: Intl.NumberFormatOptions // shows the formatted value next to the label
-  inline?: boolean
+  format?: Intl.NumberFormatOptions // shows the formatted value after the track
+  width?: string // the track's width class
   disabled?: boolean
 }) {
   return (
     <BaseSlider.Root
       disabled={props.disabled}
-      className={`${props.inline ? 'flex items-center gap-2' : 'grid grid-cols-[1fr_auto] items-center gap-x-2 gap-y-2'} data-disabled:opacity-40`}
+      className="flex items-center gap-2 data-disabled:opacity-40"
       value={props.value}
       onValueChange={v => props.onChange(v as number)}
-      onValueCommitted={() => !props.inline && play('select', { emphasis: 'subtle' })}
+      onValueCommitted={() => play('select', { emphasis: 'subtle' })}
       min={props.min ?? 0}
       max={props.max ?? 1}
       step={props.step ?? 0.01}
       format={props.format}
     >
       <BaseSlider.Label className={label}>{props.label}</BaseSlider.Label>
-      {props.format && <BaseSlider.Value className="text-[11px] text-ink/70 tabular-nums" />}
-      <BaseSlider.Control className={`flex h-4 touch-none items-center select-none ${props.inline ? 'w-28' : 'col-span-2'}`}>
-        <BaseSlider.Track className="relative h-1 w-full rounded-xs bg-ink/10">
-          <BaseSlider.Indicator className="rounded-xs bg-accent" />
-          <BaseSlider.Thumb className="h-4 w-2.5 rounded-xs bg-white ring-1 ring-ink/15 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink" />
+      <BaseSlider.Control className={`flex h-4 touch-none items-center select-none ${props.width ?? 'w-28'}`}>
+        <BaseSlider.Track className="relative h-0.5 w-full rounded-xs bg-ink/10">
+          <BaseSlider.Indicator className="rounded-xs bg-ink/40" />
+          <BaseSlider.Thumb className="size-3 rounded-xs bg-white ring-1 ring-ink/25 transition-shadow hover:ring-ink/45 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink" />
         </BaseSlider.Track>
       </BaseSlider.Control>
+      {props.format && <BaseSlider.Value className="w-8 text-[11px] text-ink/60 tabular-nums" />}
     </BaseSlider.Root>
   )
 }
