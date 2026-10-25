@@ -9,6 +9,9 @@ import { play } from 'cuelume'
 import { Check, ChevronDown, ChevronsUpDown, Film, RectangleHorizontal, RectangleVertical, Smartphone, Square, X, type LucideIcon } from 'lucide-react'
 import { EXPORT_PRESETS, exportSize, outputSize, type Aspect, type ExportPreset, type Fit, type Media, type Project } from './model'
 
+// Keys inside these belong to the control, not to the editor shortcuts.
+export const OWN_KEYS =
+  'input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="tab"], [role="alertdialog"]'
 export const card = 'bg-surface ring-1 ring-line' // dialogs and toasts
 export const pill =
   'inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-ink/6 text-[11px] font-medium text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink disabled:opacity-40 disabled:pointer-events-none'

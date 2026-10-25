@@ -18,7 +18,11 @@ export type Media = {
   peaksDone?: number // share of the audio read into peaks, 0..1 (1 also when reading failed)
   removed?: boolean // taken out of the bin; kept in memory so undo can bring its clips back (which shows it again)
   handle?: FileSystemFileHandle // where the file is on disk (Chromium), to read it again after a reload
+  range?: [number, number] // a clip saved from Clip Preview: just this part of the file (source seconds)
 }
+
+// How long a bin entry is: the whole file, or the part a saved clip covers.
+export const binLength = (m: Media) => (m.range ? m.range[1] - m.range[0] : m.duration)
 
 // The same file picked again: name and size match (copies get a new modified time).
 export const sameFile = (a: { name: string; size: number }, b: { name: string; size: number }) => a.name === b.name && a.size === b.size
@@ -211,8 +215,8 @@ export const newClip = (m: Media, start = 0): Clip => ({
   id: crypto.randomUUID(),
   mediaId: m.id,
   start,
-  in: 0,
-  out: m.duration,
+  in: m.range?.[0] ?? 0,
+  out: m.range?.[1] ?? m.duration,
   speed: 1,
   volume: 1,
 })

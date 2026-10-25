@@ -3,7 +3,9 @@
 // it's picked again. Thumbnails and finished waveforms are stored too, so nothing is read twice.
 import { sameFile, type Media, type Project } from './model'
 
-export type SavedMedia = Omit<Media, 'file' | 'url' | 'thumb'> & { size: number; lastModified: number; thumb?: Blob }
+export type SavedMedia = Omit<Media, 'file' | 'url' | 'thumb'> & { fileName: string; size: number; lastModified: number; thumb?: Blob }
+// A file picked or read again is the saved one when its name (the file's, not a saved clip's) and size match.
+export const isFileOf = (m: SavedMedia, file: File) => sameFile({ name: m.fileName ?? m.name, size: m.size }, file)
 export type Saved = { project: Project; media: SavedMedia[]; savedAt: number }
 
 const STATE = 'state'
@@ -29,6 +31,7 @@ async function toSaved({ file, url: _, thumb, ...m }: Media): Promise<SavedMedia
     ...m,
     peaks: finished ? m.peaks : undefined,
     peaksDone: finished ? 1 : 0, // half-read waveforms are read again after a restore
+    fileName: file.name,
     size: file.size,
     lastModified: file.lastModified,
     thumb: thumb ? await (await fetch(thumb)).blob() : undefined,
@@ -87,7 +90,7 @@ export async function readHandles(media: SavedMedia[], ask: boolean): Promise<Ma
       if (state === 'prompt' && ask) state = await m.handle.requestPermission({ mode: 'read' })
       if (state !== 'granted') continue
       const file = await m.handle.getFile()
-      if (sameFile(m, file)) files.set(m.id, file)
+      if (isFileOf(m, file)) files.set(m.id, file)
     } catch {
       // moved or deleted on disk: it has to be picked again
     }
@@ -96,7 +99,7 @@ export async function readHandles(media: SavedMedia[], ask: boolean): Promise<Ma
 }
 
 // Media again, from a saved record and its file.
-export const toMedia = ({ size: _, lastModified: __, thumb, ...m }: SavedMedia, file: File): Media => ({
+export const toMedia = ({ fileName: _, size: __, lastModified: ___, thumb, ...m }: SavedMedia, file: File): Media => ({
   ...m,
   file,
   url: URL.createObjectURL(file),
