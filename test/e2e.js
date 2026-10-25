@@ -124,3 +124,32 @@ export async function transcode(file, name, args) {
   ffmpeg.terminate()
   return new File([data], name)
 }
+
+// Stress-test helpers (files from test/media, made by test/make-media.sh).
+export const sleep = ms => new Promise(r => setTimeout(r, ms))
+export async function file(path) {
+  const r = await fetch('/test/media/' + path)
+  return new File([await r.blob()], path.split('/').pop(), { type: r.headers.get('content-type') ?? '' })
+}
+export const toasts = () => [...document.querySelectorAll('[role="dialog"]')].map(e => e.innerText.replace(/\n+/g, ' / '))
+export const counts = () => [...document.querySelectorAll('[role="tab"]')].map(t => t.innerText.replace(/\n/g, ' ')).join(', ')
+export async function newProject() {
+  const b = [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'New project')
+  if (b && !b.disabled) {
+    b.click()
+    await sleep(500)
+    ;[...document.querySelectorAll('[role="alertdialog"] button')].find(b => b.textContent.trim() === 'New project').click()
+    await sleep(800)
+  }
+  await fresh()
+}
+// The saved project and file records, straight from IndexedDB.
+export async function saved() {
+  await sleep(800)
+  const db = await new Promise(r => { const q = indexedDB.open('video-editor'); q.onsuccess = () => r(q.result) })
+  const get = (s, f) => new Promise(r => { const q = f(db.transaction(s).objectStore(s)); q.onsuccess = () => r(q.result) })
+  const [state, media] = await Promise.all([get('state', s => s.get('current')), get('media', s => s.getAll())])
+  db.close()
+  return { state, media }
+}
+export const key = (k, o = {}) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...o }))

@@ -83,23 +83,25 @@ export const clear = async () => {
   await done(tx)
 }
 
-// The saved files that can be read through their handles. Without `ask` only ones already allowed; with it (inside a
-// click) the browser may ask the user once to allow reading them again.
+// The saved files that can be read through their handles. Without `ask` only ones already allowed, all at once; with
+// it (inside a click) the browser may ask the user to allow reading them again, so one at a time.
 export async function readHandles(media: SavedMedia[], ask: boolean): Promise<Map<string, File>> {
-  const files = new Map<string, File>()
-  for (const m of media) {
-    if (!m.handle) continue
+  const read = async (m: SavedMedia): Promise<[string, File] | null> => {
+    if (!m.handle) return null
     try {
       let state = await m.handle.queryPermission({ mode: 'read' })
       if (state === 'prompt' && ask) state = await m.handle.requestPermission({ mode: 'read' })
-      if (state !== 'granted') continue
+      if (state !== 'granted') return null
       const file = await m.handle.getFile()
-      if (isFileOf(m, file)) files.set(m.id, file)
+      return isFileOf(m, file) ? [m.id, file] : null
     } catch {
-      // moved or deleted on disk: it has to be picked again
+      return null // moved or deleted on disk: it has to be picked again
     }
   }
-  return files
+  const found: ([string, File] | null)[] = []
+  if (ask) for (const m of media) found.push(await read(m))
+  else found.push(...(await Promise.all(media.map(read))))
+  return new Map(found.filter(x => x !== null))
 }
 
 // Media again, from a saved record and its file.

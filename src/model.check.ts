@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep,
   type Clip, type Project,
 } from './model.ts'
 
@@ -192,5 +192,20 @@ eq(
   [true, false, false, false, false, false],
   'plain cuts',
 )
+
+// Ripple delete near a clip edge cuts where asked on every track, so picture and sound stay together.
+{
+  const q = rippleDelete(proj([clip('a', { out: 3 }), clip('b')], [clip('m', { out: 20 })]), 2.97, 5)
+  const at = (t: number) => layoutAll(q).filter(x => t >= x.start && t < x.end).map(x => +sourceTime(x, t).toFixed(3))
+  eq(at(4), [3.03, 6.03], 'ripple delete keeps tracks in sync')
+}
+// Trimming a clip already shorter than the minimum never makes it invalid.
+{
+  const c = trimClip(clip('s', { in: 0.02, out: 0.3, start: 1, speed: 4 }), 'in', 2, 10, true)
+  eq([c.in >= 0, c.start >= 0, c.out > c.in], [true, true, true], 'trim a short clip')
+}
+
+// Times: NaN shows as zero, a length that rounds to a minute shows as one, and the ruler has steps for very long edits.
+eq([timecode(NaN), lengthLabel(59.996, 1), tickStep(1000 / 36000) >= 3600], ['0:00:00.000', '0:01:00.0', true], 'time labels at the edges')
 
 console.log('model ok')
