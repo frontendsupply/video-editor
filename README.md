@@ -21,6 +21,7 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 | Playback loop outside React | Playhead and clock are written straight to the DOM: zero re-renders while playing |
 | Shared `drawFrame()` | What you see in the preview is exactly what you export |
 | Decode straight to output size | 4K sources stay cheap when exporting 1080p |
+| Export runs in a Web Worker (video decode, draw, encode, mux, file writes) | The editor stays responsive while exporting; only the audio mix, which needs Web Audio, stays on the page |
 | Audio mixed (`OfflineAudioContext`) in 30-second chunks, in step with the video encoding | Export time ≈ video encode time, and memory stays flat however long the edit is |
 | Stream to disk (`showSaveFilePicker`, Chrome/Edge) | Long exports don't fill RAM; cancel discards the partial file |
 | Timeline renders only what's near the view | Zooming into a multi-hour clip costs the same as a short one |
@@ -34,7 +35,8 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 - `src/media.ts`: probe an imported file (tracks, size, duration, thumbnail) and read its waveform.
 - `src/peaks.worker.ts`: reads one slice of a file's audio into waveform peaks, off the main thread.
 - `src/player.ts`: preview engine (media elements + canvas + clock).
-- `src/export.ts`: MP4 export (video render, audio mix, pitch-preserving speed).
+- `src/export.ts`: MP4 export from the page: starts the worker and renders the audio mix (pitch-preserving speed) for it.
+- `src/export.worker.ts`: the export's heavy part, off the page: video frames, encoding, muxing and writing the file.
 - `src/main.tsx`, `src/Timeline.tsx`: UI.
 - `src/ClipPreview.tsx`: plays one file from the bin on its own, to mark the part to use.
 - `src/ui.tsx`: UI primitives (Select, Slider, Tooltip, Toast, the export menu, the frame menu) and shared class strings.
@@ -73,6 +75,7 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 Done lately:
 
+- **Export in a Worker**: video frames, encoding, muxing and file writes run off the page, so the editor stays responsive.
 - **Long exports**: the audio mix renders in 30-second chunks that keep pace with the video, decoding only each clip's slice, so hour-long exports use as little memory as short ones.
 - **Clip Preview**: mark In/Out on one file, add that part to the timeline or save it as a bin clip.
 - **Saving and restoring projects**: autosave on this device; files reconnect through their handles, or are matched by name and size when picked again.
@@ -87,6 +90,5 @@ Done lately:
 Next:
 
 1. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
-2. **Export in a Worker**: keeps the UI fully smooth during long exports.
-3. **Lossless fast path**: untouched stretches copy packets without re-encoding.
-4. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
+2. **Lossless fast path**: untouched stretches copy packets without re-encoding.
+3. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
