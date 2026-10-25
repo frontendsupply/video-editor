@@ -8,7 +8,7 @@ import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { bind, play } from 'cuelume'
 import {
-  Check, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Film, Maximize2, Music, Pause, Play, Plus, Redo2,
+  Check, ChevronDown, ChevronLeft, ChevronRight, Film, Maximize2, Music, Pause, Play, Plus, Redo2,
   Scissors, SkipBack, SkipForward, Trash2, Undo2, Upload, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -16,29 +16,17 @@ import { exportProject } from './export'
 import { useHistory } from './history'
 import { computePeaks, importFile } from './media'
 import {
-  cropRange, digitsFor, emptyProject, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, newClip, outputSize, placeClip,
+  cropRange, digitsFor, emptyProject, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, newClip, placeClip,
   projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, updateClip,
-  type Aspect, type Clip, type DropTarget, type ExportPreset, type Fit, type Media, type Project, type SplitTarget,
+  type Clip, type DropTarget, type ExportPreset, type Media, type Project, type SplitTarget,
 } from './model'
 import { Player } from './player'
 import { MEDIA_MIME, Timeline, zoomToFit, type Range } from './Timeline'
-import { card, dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, menuItem, pill, popup, ribbon, Segmented, Select, Slider, Tip, toast, Toasts } from './ui'
+import { card, dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
 import './styles.css'
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`
 const MOD = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
-const ASPECTS: { value: Aspect; label: string; tip: string }[] = [
-  { value: 'original', label: 'Orig', tip: 'Size of the first clip' },
-  { value: '16:9', label: '16:9', tip: 'YouTube, 1920×1080' },
-  { value: '9:16', label: '9:16', tip: 'Reels / TikTok, 1080×1920' },
-  { value: '1:1', label: '1:1', tip: 'Square, 1080×1080' },
-  { value: '4:5', label: '4:5', tip: 'Feed, 1080×1350' },
-]
-const FITS: { value: Fit; label: string; tip: string }[] = [
-  { value: 'contain', label: 'Fit', tip: 'Show the whole frame, add bars' },
-  { value: 'cover', label: 'Fill', tip: 'Fill the frame, crop the edges' },
-]
-const FPS = [24, 25, 30, 60].map(f => ({ value: f, label: `${f}` }))
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
 // Keys inside these belong to the control, not to the editor shortcuts.
 const OWN_KEYS = 'input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="tab"], [role="alertdialog"]'
@@ -81,7 +69,6 @@ function App() {
   digitsRef.current = digits
   const sel = findPlaced(project, selected)
   const used = new Set([...project.video, ...project.overlay, ...project.audio].map(c => c.mediaId))
-  const [outW, outH] = outputSize(project, media)
 
   useEffect(() => bind(), []) // sound data attributes on controls play UI sounds
 
@@ -362,33 +349,27 @@ function App() {
         e.target.value = ''
       }} />
 
-      {/* ribbon */}
-      <header className="mb-1.5 flex items-center gap-0.5">
-        <span className="mr-1.5 grid size-8 place-items-center rounded-md bg-accent text-ink" aria-label="Video Editor"><Clapperboard size={15} /></span>
-        <button className={ribbon} onClick={() => fileRef.current!.click()} data-cuelume-open=""><Plus size={16} />Add media</button>
-        <Divider tall />
-        <Tip label={`Undo (${MOD}Z)`}><button className={ribbon} onClick={undo} disabled={!history.canUndo}><Undo2 size={16} />Undo</button></Tip>
-        <Tip label={`Redo (⇧${MOD}Z)`}><button className={ribbon} onClick={redo} disabled={!history.canRedo}><Redo2 size={16} />Redo</button></Tip>
-        <Divider tall />
+      {/* header: one slim row of small controls */}
+      <header className="mb-1.5 flex h-7 items-center gap-0.5">
+        <button className={headerBtn} onClick={() => fileRef.current!.click()} data-cuelume-open=""><Plus size={13} />Add media</button>
+        <Divider />
+        <Tip label={`Undo (${MOD}Z)`}><button className={headerIcon} onClick={undo} disabled={!history.canUndo} aria-label="Undo"><Undo2 size={13} /></button></Tip>
+        <Tip label={`Redo (⇧${MOD}Z)`}><button className={headerIcon} onClick={redo} disabled={!history.canRedo} aria-label="Redo"><Redo2 size={13} /></button></Tip>
         <Tip label={range ? 'Delete selected region (⌫)' : 'Delete selected clip (⌫)'}>
-          <button className={ribbon} onClick={del} disabled={!range && !selected}><Trash2 size={16} />Delete</button>
+          <button className={headerIcon} onClick={del} disabled={!range && !selected} aria-label="Delete"><Trash2 size={13} /></button>
         </Tip>
         <div className="flex-1" />
-        <Segmented label="Aspect ratio" value={project.aspect} items={ASPECTS} onChange={aspect => setProject(p => ({ ...p, aspect }))} />
-        <span className="w-1" />
-        <Segmented label="Fit" value={project.fit} items={FITS} onChange={fit => setProject(p => ({ ...p, fit }))} />
-        <Select compact label="FPS" value={project.fps} items={FPS} onChange={fps => setProject(p => ({ ...p, fps }))} />
         <Menu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
           <Menu.Trigger
             disabled={!duration || progress !== null}
-            className="flex h-8 items-center gap-1 rounded-md bg-accent pr-3 pl-5 text-[11px] font-bold tracking-wide text-ink uppercase transition-transform active:scale-95 disabled:opacity-40 data-popup-open:brightness-95"
+            className={`${headerBtn} ml-1.5 bg-white font-semibold text-ink ring-1 ring-ink/12 data-popup-open:bg-ink/5`}
           >
-            Export <ChevronDown size={13} strokeWidth={2.5} />
+            Export <ChevronDown size={12} />
           </Menu.Trigger>
           <Menu.Portal>
-            <Menu.Positioner className="z-20 outline-none" sideOffset={8} align="end">
+            <Menu.Positioner className="z-20 outline-none" sideOffset={6} align="end">
               <Menu.Popup className={`${popup} w-60`}>
-                <ExportItems project={project} media={media} onPick={preset => onExport(preset)} />
+                <ExportItems project={project} media={media} onPick={preset => onExport(preset)} onFps={fps => setProject(p => ({ ...p, fps }))} />
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>
@@ -498,7 +479,7 @@ function App() {
         <main className={`${card} flex min-w-0 flex-1 flex-col overflow-hidden`}>
           <div className="flex h-9 shrink-0 items-center justify-between border-b border-ink/6 px-3 text-[11px]">
             <span className="font-semibold">Sequence preview</span>
-            <span className="text-ink/45 tabular-nums">{outW}×{outH} · {project.fps} fps</span>
+            <FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />
           </div>
           <div className="relative min-h-0 flex-1">
             <div className="absolute inset-3 flex items-center justify-center">

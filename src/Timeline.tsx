@@ -505,7 +505,7 @@ export function Timeline(props: Props) {
                 <Menu.Portal>
                   <Menu.Positioner className="z-20 outline-none" sideOffset={6}>
                     <Menu.Popup className={`${popup} w-60`}>
-                      <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} />
+                      <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} onFps={fps => onChange({ ...project, fps })} />
                     </Menu.Popup>
                   </Menu.Positioner>
                 </Menu.Portal>
@@ -722,7 +722,7 @@ export function Timeline(props: Props) {
                       <ContextMenu.Portal>
                         <ContextMenu.Positioner className="z-20 outline-none" sideOffset={4}>
                           <ContextMenu.Popup className={`${popup} w-60`}>
-                            <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} />
+                            <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} onFps={fps => onChange({ ...project, fps })} />
                           </ContextMenu.Popup>
                         </ContextMenu.Positioner>
                       </ContextMenu.Portal>
