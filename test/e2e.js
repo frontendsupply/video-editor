@@ -99,7 +99,14 @@ export async function inspect(blob, times) {
   return out
 }
 
+// Drops a restored or waiting project first, so the run starts empty.
+export async function fresh() {
+  ;[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Start fresh')?.click()
+  await new Promise(r => setTimeout(r, 300))
+}
+
 export async function run() {
+  await fresh()
   await drop(await fixtures())
   const { blob, ms } = await exportBlob()
   return { exportMs: ms, bytes: blob.size, ...(await inspect(blob, [1, 4, 7, 7.9])) }

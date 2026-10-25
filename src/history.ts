@@ -40,5 +40,8 @@ export function useHistory<T>(initial: T) {
     [],
   )
 
-  return [s.present, set, { undo, redo, canUndo: s.past.length > 0, canRedo: s.future.length > 0 }] as const
+  // A new starting point with nothing to undo (a restored project).
+  const reset = useCallback((present: T) => setS({ past: [], present, future: [], gesture: null }), [])
+
+  return [s.present, set, { undo, redo, reset, canUndo: s.past.length > 0, canRedo: s.future.length > 0 }] as const
 }

@@ -17,7 +17,11 @@ export type Media = {
   peaks?: Float32Array // waveform: loudest sample per 1/PEAKS_PER_SEC s, filled in after import (-1 = not read yet)
   peaksDone?: number // share of the audio read into peaks, 0..1 (1 also when reading failed)
   removed?: boolean // taken out of the bin; kept in memory so undo can bring its clips back (which shows it again)
+  handle?: FileSystemFileHandle // where the file is on disk (Chromium), to read it again after a reload
 }
+
+// The same file picked again: name and size match (copies get a new modified time).
+export const sameFile = (a: { name: string; size: number }, b: { name: string; size: number }) => a.name === b.name && a.size === b.size
 
 export const PEAKS_PER_SEC = 50
 
