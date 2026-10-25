@@ -110,6 +110,7 @@ function App() {
     if (seekAfter.current !== undefined) player.seek(seekAfter.current)
     seekAfter.current = undefined
     if (selected && !findPlaced(project, selected)) setSelected(null) // e.g. undo removed it
+    if (!duration) setRange(null) // the last clip is gone: nothing left to select
   }, [project, media])
 
   // Zooming pivots on the playhead: it stays where it was on screen, or comes to the middle if it was out of view.
@@ -589,7 +590,7 @@ function App() {
           footer={
             <>
               <span className="pl-1 text-[10px] text-ink/40">
-                {range ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more` : 'Drag in the Select bar to pick a range · click the ruler to move the playhead · I / O mark in / out'}
+                {range ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more` : duration ? 'Drag in the Select bar to pick a range · click the ruler to move the playhead · I / O mark in / out' : 'Add videos or audio to start editing'}
               </span>
               <div className="flex-1" />
               <Tip label="Zoom to fit"><button className={ghost} onClick={fitZoom} disabled={!duration} data-cuelume-tap="" data-cuelume-emphasis="subtle"><Maximize2 size={13} /></button></Tip>
