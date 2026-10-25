@@ -1,5 +1,6 @@
 // Bringing files in: the picker, dropping anywhere on the window, probing them, and converting the ones the browser
-// can't decode. New files go on the timeline too: videos at the end of Video 1, sounds after the last one on Audio 1.
+// can't decode. New files go on the timeline too: videos and pictures at the end of Video 1, sounds after the last one
+// on Audio 1.
 // The first video in an empty project sets its frame rate.
 import { useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react'
 import { play } from 'cuelume'
@@ -12,8 +13,12 @@ import { useLatest } from './useLatest'
 // What the file picker offers (any file can still be chosen).
 const PICK = [
   {
-    description: 'Video and audio',
-    accept: { 'video/*': ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'], 'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.flac'] },
+    description: 'Video, audio and images',
+    accept: {
+      'video/*': ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'],
+      'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.flac'],
+      'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.avif', '.bmp'],
+    },
   },
 ]
 

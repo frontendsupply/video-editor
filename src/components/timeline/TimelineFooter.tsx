@@ -1,7 +1,8 @@
-// The timeline's footer, in one row: the selected clip (name, times, speed and volume), or the selected range, or a
-// hint; then the zoom controls.
-import { Film, Maximize2, Music, ZoomIn, ZoomOut } from 'lucide-react'
+// The timeline's footer, in one row: the selected clip (name, times, speed and volume; a moved or resized picture's
+// Reset), or the selected range, or a hint; then the zoom controls.
+import { Film, ImageIcon, Maximize2, Music, ZoomIn, ZoomOut } from 'lucide-react'
 import { lengthLabel, timecode, type Clip, type Media, type Placed, type Range } from '@/lib/model'
+import { cn } from '@/lib/utils'
 import { Divider, ghost, Select, Slider, Tip } from '@/components/ui'
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
@@ -21,11 +22,29 @@ export function TimelineFooter(props: {
     <>
       {sel && m && !range ? (
         <div className="flex min-w-0 items-center gap-1.5 pl-1 text-[11px]">
-          {m.hasVideo ? <Film size={12} className="shrink-0 text-muted" /> : <Music size={12} className="shrink-0 text-muted" />}
+          {m.image ? (
+            <ImageIcon size={12} className="shrink-0 text-muted" />
+          ) : m.hasVideo ? (
+            <Film size={12} className="shrink-0 text-muted" />
+          ) : (
+            <Music size={12} className="shrink-0 text-muted" />
+          )}
           <span className="max-w-48 truncate font-medium" title={m.name}>{m.name}</span>
           <span className="shrink-0 text-[10px] text-muted tabular-nums">{timecode(sel.start, digits)} → {timecode(sel.end, digits)}</span>
-          <Divider />
-          <Select label="Speed" value={sel.clip.speed} items={SPEEDS} onChange={speed => props.onPatch({ speed })} />
+          {m.image && sel.clip.transform && (
+            <>
+              <Divider />
+              <Tip label="Reset position and size">
+                <button className={cn(ghost, 'h-6 px-2')} onClick={() => props.onPatch({ transform: undefined })}>Reset</button>
+              </Tip>
+            </>
+          )}
+          {!m.image && ( // a picture looks the same at any speed
+            <>
+              <Divider />
+              <Select label="Speed" value={sel.clip.speed} items={SPEEDS} onChange={speed => props.onPatch({ speed })} />
+            </>
+          )}
           {m.hasAudio && !sel.clip.muted && (
             <>
               <Divider />

@@ -1,6 +1,6 @@
-// Bringing a file in: probing it (tracks, size, length, a thumbnail) without reading it all.
+// Bringing a file in: probing it (tracks, size, length, a thumbnail) without reading it all. Pictures are read whole.
 import { ALL_FORMATS, BlobSource, CanvasSink, Input, UnsupportedInputFormatError, type InputVideoTrack } from 'mediabunny'
-import type { Media } from '@/lib/model'
+import { IMAGE_LENGTH, type Media } from '@/lib/model'
 
 // A file to import, with its handle when the browser gives one; a converted copy also keeps the original's name.
 export type Picked = { file: File; handle?: FileSystemFileHandle; name?: string; converted?: string }
@@ -18,13 +18,13 @@ export class NeedsConversion extends Error {
 // Probe a local file. Only the bytes needed are read (headers + one frame), never the whole file.
 export async function importFile(file: File): Promise<Media> {
   if (!file.size) throw new Error('The file is empty. Check that it finished copying or downloading, then add it again.')
-  if (file.type.startsWith('image/')) throw new Error('Only video and audio files can be added.')
+  if (file.type.startsWith('image/')) return importImage(file)
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
   try {
     const [video, audio] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()]).catch(e => {
       if (!(e instanceof UnsupportedInputFormatError)) throw e
       // A container it can't read, like AVI, goes to the converter; a file that isn't media at all doesn't.
-      if (file.type && !/^(video|audio)\//.test(file.type)) throw new Error('Only video and audio files can be added.')
+      if (file.type && !/^(video|audio)\//.test(file.type)) throw new Error('Only video, audio and image files can be added.')
       throw new NeedsConversion('encode')
     })
     if (!video && !audio) throw new Error("No video or audio found in it. If it's still being recorded or copied, add it again once that's done.")
@@ -48,6 +48,33 @@ export async function importFile(file: File): Promise<Media> {
   } finally {
     input.dispose()
   }
+}
+
+// A picture: its size (turned upright, as its EXIF says) and a small thumbnail, kept as PNG so transparency shows.
+async function importImage(file: File): Promise<Media> {
+  const read = (o?: ImageBitmapOptions) =>
+    createImageBitmap(file, o).catch(() => {
+      throw new Error("This image can't be opened here. Save it again as JPEG or PNG and add that.")
+    })
+  const [full, small] = [await read(), await read({ resizeHeight: 96, resizeQuality: 'high' })]
+  const canvas = new OffscreenCanvas(small.width, small.height)
+  canvas.getContext('2d')!.drawImage(small, 0, 0)
+  const media: Media = {
+    id: crypto.randomUUID(),
+    file,
+    url: URL.createObjectURL(file),
+    name: file.name,
+    duration: IMAGE_LENGTH,
+    width: full.width,
+    height: full.height,
+    hasVideo: true,
+    hasAudio: false,
+    image: true,
+    thumb: URL.createObjectURL(await canvas.convertToBlob()),
+  }
+  full.close()
+  small.close()
+  return media
 }
 
 // A small JPEG of the frame at `t` (a blob: URL), for bin cards.

@@ -1,14 +1,16 @@
-// The sequence preview: the player's canvas, or in its place the restore panel (a saved project waiting for its
-// files) or the empty state (drop or pick files).
-import type { Ref } from 'react'
+// The sequence preview: the player's canvas with the picture handles over it, or in its place the restore panel (a
+// saved project waiting for its files) or the empty state (drop or pick files).
+import type { ComponentProps, RefObject } from 'react'
 import { Upload } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { cn } from '@/lib/utils'
 import type { Restore } from '@/hooks/useProjectStorage'
+import { PictureBox } from './PictureBox'
 import { RestorePanel } from './RestorePanel'
 
 export function SequenceView(props: {
-  canvasRef: Ref<HTMLCanvasElement>
+  canvasRef: RefObject<HTMLCanvasElement | null>
+  pictures: Omit<ComponentProps<typeof PictureBox>, 'canvasRef'>
   hidden: boolean // Clip Preview is showing instead (the canvas stays, the player keeps drawing into it)
   empty: boolean
   loaded: boolean // the saved project has been looked for: until then neither panel shows
@@ -21,6 +23,7 @@ export function SequenceView(props: {
     <div className={cn('relative min-h-0 flex-1', props.hidden && 'hidden')}>
       <div className="absolute inset-3 flex items-center justify-center">
         <canvas ref={props.canvasRef} className={cn('max-h-full max-w-full rounded-md ring-1 ring-line', props.empty && 'invisible')} />
+        <PictureBox canvasRef={props.canvasRef} {...props.pictures} />
       </div>
       <AnimatePresence>
         {props.restore ? (
@@ -46,7 +49,7 @@ export function SequenceView(props: {
               className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-ink/60 hover:border-ink/25"
             >
               <span className="grid size-12 place-items-center rounded-md bg-ink/6"><Upload size={18} /></span>
-              <span className="text-sm font-semibold text-ink">Drop video and audio files here</span>
+              <span className="text-sm font-semibold text-ink">Drop video, audio and image files here</span>
               <span className="text-[11px] text-muted">or click to add media · files never leave your device</span>
             </motion.button>
           )

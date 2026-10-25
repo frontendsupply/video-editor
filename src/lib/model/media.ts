@@ -1,6 +1,10 @@
 // Files in the bin: how long an entry is, recognising a file picked again, and its waveform resolution.
 import type { Media } from './types.ts'
 
+// A picture has no length of its own: it comes in this long (its `duration`), and its clips stretch to any length.
+export const IMAGE_LENGTH = 5
+export const sourceEnd = (m: Media) => (m.image ? Infinity : m.duration) // how far a clip's out point can go
+
 // How long a bin entry is: the whole file, or the part a saved clip covers.
 export const binLength = (m: Media) => (m.range ? m.range[1] - m.range[0] : m.duration)
 

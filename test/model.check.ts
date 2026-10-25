@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
-  layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep, nearestRate,
+  layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, layerRect, outputSize, exportSize,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep, nearestRate, sourceEnd, IMAGE_LENGTH,
   type Clip, type Project,
 } from '../src/lib/model/index.ts'
 
@@ -48,6 +48,13 @@ const at = trimClip(clip('t', { start: 4 }), 'in', 2, 10, true)
 eq([at.in, at.start], [2, 6], 'anchored trim moves start')
 eq(trimClip(clip('t', { start: 1, in: 3 }), 'in', -5, 10, true).start, 0, 'anchored trim stops at 0')
 
+// a picture comes in IMAGE_LENGTH long and stretches past it; a video stops at its end
+const pic = { duration: IMAGE_LENGTH, image: true, hasVideo: true, hasAudio: false } as never
+const vid = { duration: 12, hasVideo: true, hasAudio: true } as never
+eq([newClip(pic).out, binLength(pic)], [5, 5], 'picture comes in 5 s long')
+eq(trimClip(newClip(pic), 'out', 55, sourceEnd(pic), false).out, 60, 'picture stretches past its length')
+eq(trimClip(newClip(vid), 'out', 55, sourceEnd(vid), false).out, 12, 'video stops at its end')
+
 // move: audio is free but clamps at 0
 eq(moveClip(p, 'm', 2).audio[0].start, 17, 'audio moves')
 eq(moveClip(p, 'm', -100).audio[0].start, 0, 'audio clamps at 0')
@@ -55,6 +62,11 @@ eq(moveClip(p, 'm', -100).audio[0].start, 0, 'audio clamps at 0')
 // geometry
 eq(fitRect(1920, 1080, 1080, 1920, 'contain'), { x: 0, y: 656.25, w: 1080, h: 607.5 }, 'contain')
 eq(fitRect(100, 100, 200, 100, 'cover'), { x: 0, y: -50, w: 200, h: 200 }, 'cover')
+// a moved and resized layer: half size, its centre a quarter frame right and up
+eq(layerRect(1920, 1080, 1920, 1080, 'contain', { x: 0.25, y: -0.25, scale: 0.5 }), { x: 960, y: 0, w: 960, h: 540 }, 'layer moved and resized')
+eq(layerRect(1920, 1080, 1920, 1080, 'contain'), fitRect(1920, 1080, 1920, 1080, 'contain'), 'no transform: just fitted')
+const moved = { x: 0.1, y: 0, scale: 2 }
+eq(splitAt(proj([clip('pic', { transform: moved })]), 5).video.map(c => c.transform), [moved, moved], 'both halves of a split keep the transform')
 eq(outputSize({ ...p, aspect: 'original' }, { m: { width: 1081, height: 721 } as never }), [1080, 720], 'even size')
 
 // export presets cap the short edge, keep aspect, stay even, never upscale
@@ -191,8 +203,9 @@ eq(
     plainCuts(proj([clip('a')], [], [clip('o', { lane: 0 })])),
     plainCuts(proj([clip('a')], [clip('m', { start: 5, out: 10 })])), // music runs past the video
     plainCuts(proj([])),
+    plainCuts(proj([clip('a', { transform: { x: 0, y: 0, scale: 0.5 } })])),
   ],
-  [true, false, false, false, false, false],
+  [true, false, false, false, false, false, false],
   'plain cuts',
 )
 

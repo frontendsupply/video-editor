@@ -7,11 +7,11 @@ import {
   getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
 } from 'mediabunny'
 import {
-  MIX_RATE, drawFrame, exportSize, fitRect, laneOf, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
+  MIX_RATE, drawFrame, exportSize, laneOf, layerRect, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
   type ExportPreset, type Media, type Placed, type Project,
 } from '@/lib/model'
 
-export type ExportMedia = Pick<Media, 'file' | 'width' | 'height'>
+export type ExportMedia = Pick<Media, 'file' | 'width' | 'height' | 'image'>
 export type ExportJob = {
   p: Project
   media: Record<string, ExportMedia>
@@ -125,6 +125,7 @@ async function copyPlan(p: Project, media: Record<string, ExportMedia>, W: numbe
     let first: { codec: VideoCodec; config: VideoDecoderConfig } | undefined
     const pieces: Piece[] = []
     for (const pl of layoutVideo(p.video)) {
+      if (media[pl.clip.mediaId].image) return dispose(), null // a picture has no packets to copy
       const file = media[pl.clip.mediaId].file
       let input = inputs.get(file)
       if (!input) inputs.set(file, (input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })))
@@ -190,7 +191,8 @@ async function copyVideo({ config, pieces }: Plan, video: EncodedVideoPacketSour
 
 // One output frame at a time: black, then every active layer (Video 1, then overlays by lane, higher on top).
 // Each clip gets its own decoder stream, opened at its first frame and closed after its last, so only the
-// clips on screen at once are being decoded.
+// clips on screen at once are being decoded. A picture is decoded once, already at its size on screen, and drawn on
+// every frame of its clip.
 // A frame that is a file's own frame as it is (an upright file at the output size, nothing on top) skips the canvas:
 // the encoder reading a canvas back costs ~3 ms a frame, which held small exports to ~330 fps, and the round trip
 // through the canvas softens colour detail. Only when the edit is Video 1 alone, so the picture can't soften as an
@@ -207,6 +209,7 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
   const video1Only = layers.every(l => p.video.includes(l.pl.clip))
   type Stream = { input: Input; frames: AsyncGenerator<VideoSample | WrappedCanvas | null, void, unknown> }
   const open = new Map<(typeof layers)[number], Stream>()
+  const stills = new Map<(typeof layers)[number], ImageBitmap>()
   const close = async (l: (typeof layers)[number]) => {
     const s = open.get(l)!
     open.delete(l)
@@ -223,25 +226,36 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
       let decoded: VideoSample | null = null
       for (const l of layers) {
         if (f < l.first || f >= l.end) continue
+        if (l.m.image) {
+          let still = stills.get(l)
+          if (!still) {
+            const r = layerRect(l.m.width, l.m.height, W, H, p.fit, l.pl.clip.transform) // its size as drawn
+            still = await createImageBitmap(l.m.file, { resizeWidth: Math.max(1, Math.round(r.w)), resizeHeight: Math.max(1, Math.round(r.h)), resizeQuality: 'high' })
+            stills.set(l, still)
+          }
+          drawFrame(ctx, still, l.m.width, l.m.height, p.fit, false, l.pl.clip.transform)
+          if (f === l.end - 1) still.close(), stills.delete(l)
+          continue
+        }
         let s = open.get(l)
         if (!s) {
           const input = new Input({ source: new BlobSource(l.m.file), formats: ALL_FORMATS })
           const track = (await input.getPrimaryVideoTrack())!
           // Constant output frame rate: one source lookup per output frame (handles speed up and slow-mo alike).
           const times = Array.from({ length: l.end - l.first }, (_, i) => sourceTime(l.pl, (l.first + i) / fps))
-          const asIs = video1Only && !(await track.getRotation()) && !(await track.getFlip()) &&
+          const asIs = video1Only && !l.pl.clip.transform && !(await track.getRotation()) && !(await track.getFlip()) &&
             [await track.getCodedWidth(), await track.getCodedHeight(), await track.getDisplayWidth(), await track.getDisplayHeight()].join() === [W, H, W, H].join()
           if (asIs) s = { input, frames: new VideoSampleSink(track).samplesAtTimestamps(times) }
           else {
             // Decode straight to the final on-screen size (GPU resize + rotation) so big sources stay cheap.
-            const r = fitRect(l.m.width, l.m.height, W, H, p.fit)
+            const r = layerRect(l.m.width, l.m.height, W, H, p.fit, l.pl.clip.transform)
             const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', poolSize: 2 })
             s = { input, frames: sink.canvasesAtTimestamps(times) }
           }
           open.set(l, s)
         }
         const { value: frame } = await s.frames.next()
-        if (!(frame instanceof VideoSample)) drawFrame(ctx, frame?.canvas ?? null, l.m.width, l.m.height, p.fit, false)
+        if (!(frame instanceof VideoSample)) drawFrame(ctx, frame?.canvas ?? null, l.m.width, l.m.height, p.fit, false, l.pl.clip.transform)
         else if (frame.format === 'I420' || frame.format === 'NV12') decoded = frame // no alpha, nothing to convert
         else drawFrame(ctx, frame.toCanvasImageSource(), W, H, p.fit, false), frame.close()
         if (f === l.end - 1) await close(l)
@@ -262,5 +276,6 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
   } finally {
     post({ type: 'progress', fraction: 1, t: Infinity }) // done (or failed): the mix needn't wait any more
     for (const l of [...open.keys()]) await close(l) // cancelled mid-export
+    stills.forEach(b => b.close())
   }
 }

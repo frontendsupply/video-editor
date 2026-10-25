@@ -1,6 +1,6 @@
 // The preview engine: plays the project through media elements onto a canvas, with its own clock.
 import {
-  drawFrame, laneOf, layoutFree, layoutVideo, outputSize, projectDuration, sourceTime,
+  drawFrame, laneOf, layerRect, layoutFree, layoutVideo, outputSize, projectDuration, sourceTime,
   type Clip, type Media, type Placed, type Project,
 } from '@/lib/model'
 
@@ -14,15 +14,18 @@ type Slot = { el: HTMLMediaElement; key: string; clip: string | null }
 // file: one for each clip playing now or starting within PREROLL, parked at its in-point so clip changes start
 // instantly. Splitting a file into a hundred clips still needs only as many elements as overlap that window.
 // Each animation frame the active Video 1 clip, then any active overlay clips (Video 2, 3, …), are drawn onto a
-// canvas with the same drawFrame() that export uses. Runs outside React: no re-renders while playing.
+// canvas with the same drawFrame() that export uses. Pictures need no playing: one <img> per file, drawn as it is.
+// Runs outside React: no re-renders while playing.
 export class Player {
   t = 0
   playing = false
   onTime = (_t: number) => {}
+  private watchers = new Set<(t: number) => void>() // more listeners for the time, see watch()
   onPlayingChange = (_playing: boolean) => {}
 
   private ctx: CanvasRenderingContext2D
   private slots: Slot[] = []
+  private pictures = new Map<string, HTMLImageElement>() // by media id
   private media: Record<string, Media> = {}
   private sound = new Set<string>() // clips on audio lanes borrow <audio>, the rest <video>
   private layers: Placed[] = [] // drawn in this order: Video 1, then overlays by lane
@@ -62,11 +65,12 @@ export class Player {
       el.load() // frees the decoder
     }
     this.slots = this.slots.filter(s => used.has(s.key))
+    for (const id of this.pictures.keys()) if (!this.all.some(x => x.clip.mediaId === id)) this.pictures.delete(id)
 
     this.t = Math.min(this.t, this.duration)
     this.sync()
     this.draw()
-    this.onTime(this.t)
+    this.tick()
   }
 
   play() {
@@ -84,7 +88,7 @@ export class Player {
     cancelAnimationFrame(this.raf)
     this.sync()
     this.draw()
-    this.onTime(this.t)
+    this.tick()
     this.onPlayingChange(false)
   }
 
@@ -98,7 +102,7 @@ export class Player {
     this.wall = performance.now() - this.t * 1000
     this.sync()
     this.draw()
-    this.onTime(this.t)
+    this.tick()
   }
 
   private loop = () => {
@@ -110,7 +114,7 @@ export class Player {
     }
     this.sync()
     this.draw()
-    this.onTime(this.t)
+    this.tick()
     this.raf = requestAnimationFrame(this.loop)
   }
 
@@ -118,7 +122,7 @@ export class Player {
   // re-seeked on real drift; the ~0.1-0.2s an element needs to start playing stays under the threshold.
   private sync() {
     const t = this.t
-    const soon = this.all.filter(pl => pl.start < t + PREROLL && t < pl.end)
+    const soon = this.all.filter(pl => !this.media[pl.clip.mediaId].image && pl.start < t + PREROLL && t < pl.end)
     const ids = new Set(soon.map(pl => pl.clip.id))
     for (const s of this.slots) {
       if (!s.clip || ids.has(s.clip)) continue
@@ -164,13 +168,56 @@ export class Player {
     return free.el
   }
 
+  // Calls `f` with the time whenever it changes (playing, seeking, a new project); returns the unsubscribe.
+  watch(f: (t: number) => void) {
+    this.watchers.add(f)
+    return () => void this.watchers.delete(f)
+  }
+
+  private tick() {
+    this.onTime(this.t)
+    this.watchers.forEach(f => f(this.t))
+  }
+
+  // The topmost picture on screen under a point of the frame (shares of its width and height), for the preview's
+  // handles. Its whole box counts, transparent parts too.
+  pictureAt(u: number, v: number): Placed | null {
+    if (!this.project) return null
+    const { width: W, height: H } = this.ctx.canvas
+    const on = this.layers.filter(x => this.t >= x.start && this.t < x.end && this.media[x.clip.mediaId].image)
+    for (const pl of on.reverse()) {
+      const m = this.media[pl.clip.mediaId]
+      const r = layerRect(m.width, m.height, W, H, this.project.fit, pl.clip.transform)
+      if (u * W >= r.x && u * W <= r.x + r.w && v * H >= r.y && v * H <= r.y + r.h) return pl
+    }
+    return null
+  }
+
+  private picture(id: string) {
+    let img = this.pictures.get(id)
+    if (!img) {
+      img = document.createElement('img')
+      img.src = this.media[id].url
+      img.onload = () => !this.playing && this.draw()
+      this.pictures.set(id, img)
+    }
+    return img
+  }
+
   private draw() {
     if (!this.project) return
     const active = this.layers.filter(x => this.t >= x.start && this.t < x.end)
-    // every active clip is in sync()'s `soon`, so it holds an element
-    const els = active.map(pl => this.slots.find(s => s.clip === pl.clip.id)!.el as HTMLVideoElement)
-    if (els.some(el => el.readyState < 2)) return // mid-seek: keep the last frame instead of flashing black
+    // every active video clip is in sync()'s `soon`, so it holds an element; a picture has its <img>
+    const els = active.map(pl =>
+      this.media[pl.clip.mediaId].image ? this.picture(pl.clip.mediaId) : (this.slots.find(s => s.clip === pl.clip.id)!.el as HTMLVideoElement),
+    )
+    const transforms = active.map(pl => pl.clip.transform)
+    // mid-seek or still loading: keep the last frame instead of flashing black
+    if (els.some(el => (el instanceof HTMLImageElement ? !el.complete : el.readyState < 2))) return
     drawFrame(this.ctx, null, 0, 0, this.project.fit) // black base
-    els.forEach(el => drawFrame(this.ctx, el, el.videoWidth, el.videoHeight, this.project!.fit, false))
+    els.forEach((el, i) => {
+      const [w, h] = el instanceof HTMLImageElement ? [el.naturalWidth, el.naturalHeight] : [el.videoWidth, el.videoHeight]
+      drawFrame(this.ctx, el, w, h, this.project!.fit, false, transforms[i])
+    })
   }
 }

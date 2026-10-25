@@ -38,7 +38,7 @@ export async function exportProject(
   const cancel = () => send({ type: 'cancel' })
   signal.addEventListener('abort', cancel)
   // The worker needs only the files and their sizes, not thumbnails or waveforms.
-  const files = Object.fromEntries(Object.entries(media).map(([id, m]) => [id, { file: m.file, width: m.width, height: m.height } satisfies ExportMedia]))
+  const files = Object.fromEntries(Object.entries(media).map(([id, m]) => [id, { file: m.file, width: m.width, height: m.height, image: m.image } satisfies ExportMedia]))
   send({ type: 'start', job: { p, media: files, file, preset, frame, audio } })
   try {
     // Audio mixes while the video encodes, a chunk at a time; each chunk waits for the encoder to take the last one.

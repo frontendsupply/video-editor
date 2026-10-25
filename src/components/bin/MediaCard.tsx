@@ -1,5 +1,5 @@
 // One file in the bin: its thumbnail and length, a checkbox for whether it's on the timeline, quick add buttons, and
-// a right-click menu. Drag it onto any lane; double-click to open it in Clip Preview.
+// a right-click menu. Drag it onto any lane; double-click to open it in Clip Preview (not a picture: it has no length).
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { play } from 'cuelume'
 import { Check, Film, MonitorPlay, Music, Trash2 } from 'lucide-react'
@@ -27,7 +27,7 @@ export function MediaCard(props: {
       {/* a native draggable, so the animated wrapper's drag props stay off */}
       <ContextMenu.Trigger
         draggable
-        onDoubleClick={props.onOpen}
+        onDoubleClick={m.image ? undefined : props.onOpen}
         onDragStart={e => {
           e.dataTransfer.setData(MEDIA_MIME, m.id)
           e.dataTransfer.effectAllowed = 'copy'
@@ -55,7 +55,7 @@ export function MediaCard(props: {
               <Check size={10} strokeWidth={3} />
             </button>
           </Tip>
-          <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{clock(binLength(m))}</span>
+          {!m.image && <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{clock(binLength(m))}</span>}
           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {m.hasVideo && (
               <Tip label="Append to the video track">
@@ -83,9 +83,11 @@ export function MediaCard(props: {
       <ContextMenu.Portal>
         <ContextMenu.Positioner className="z-20 outline-none">
           <ContextMenu.Popup className={cn(popup, 'w-48')}>
-            <ContextMenu.Item className={menuItem} onClick={props.onOpen}>
-              <span className="flex items-center gap-2"><MonitorPlay size={13} /> Open in Clip Preview</span>
-            </ContextMenu.Item>
+            {!m.image && (
+              <ContextMenu.Item className={menuItem} onClick={props.onOpen}>
+                <span className="flex items-center gap-2"><MonitorPlay size={13} /> Open in Clip Preview</span>
+              </ContextMenu.Item>
+            )}
             <ContextMenu.Item className={menuItem} onClick={props.onRemove}>
               <span className="flex items-center gap-2"><Trash2 size={13} /> Remove file</span>
             </ContextMenu.Item>

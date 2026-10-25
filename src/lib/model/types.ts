@@ -13,6 +13,7 @@ export type Media = {
   height: number
   hasVideo: boolean
   hasAudio: boolean
+  image?: boolean // a still picture: on video tracks like a video without sound, and its clips can be any length
   fps?: number // video frames per second (measured over the first ~120 frames)
   thumb?: string
   peaks?: Float32Array // waveform: loudest sample per 1/PEAKS_PER_SEC s, filled in after import (-1 = not read yet)
@@ -34,7 +35,12 @@ export type Clip = {
   speed: number
   volume: number // 0..1
   muted?: boolean // a video clip whose sound was unlinked into its own audio clip
+  transform?: Transform // a picture moved or resized on the preview (see layerRect)
 }
+
+// Where a layer sits in the frame, from where fitting puts it: its centre moved by x and y (shares of the frame's
+// width and height) and its size times scale. Shares of the frame, so it holds at every export size.
+export type Transform = { x: number; y: number; scale: number }
 
 // Video 1 is magnetic. Overlay clips (Video 2, 3, …) and audio clips (Audio 1, 2, …) are placed freely in lanes.
 // A video clip carries its own sound until it's unlinked. Higher video lanes draw on top.
