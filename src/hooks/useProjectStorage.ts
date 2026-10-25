@@ -1,13 +1,11 @@
 // The project is saved as you go. On load the last one comes back by itself when the browser still lets us read its
-// files; otherwise the restore panel asks to read them again (or to pick them) or to start fresh. Nothing is saved
-// until that's settled, so the empty editor never overwrites it.
+// files; otherwise the restore panel asks to read them again (or to pick them) or to start fresh, and adding any other
+// file starts fresh with it. Nothing is saved until that's settled, so the empty editor never overwrites it.
 import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
 import { play } from 'cuelume'
 import type { Picked } from '@/lib/media/import'
 import type { Media, Project } from '@/lib/model'
 import { clear, isFileOf, load, readHandles, save, toMedia, type Saved } from '@/lib/store'
-import { list, plural } from '@/lib/utils'
-import { toast } from '@/components/ui'
 import { useLatest } from './useLatest'
 
 // The last project, waiting for its files: the ones found so far, and whether the browser was already asked for the rest.
@@ -61,11 +59,13 @@ export function useProjectStorage({ project, media, setMedia, reset, readPeaks }
     else setRestore({ ...r, files, asked: true })
   }
 
-  // Files picked or dropped while the panel is up are the missing ones, matched by name and size; a new handle is
-  // kept, so next time they come back by themselves. Returns false when no project is waiting, so they're imported.
+  // Files picked or dropped while the panel is up: when they're all from the last project they reconnect it, matched
+  // by name and size (a new handle is kept, so next time they come back by themselves). Any other file starts a new
+  // project instead, with everything added. Returns false when they're to be imported as usual.
   function locate(items: Picked[]) {
     const r = pending.current
     if (!r) return false
+    if (!items.every(x => r.saved.media.some(m => isFileOf(m, x.file)))) return discard(), false
     const files = new Map(r.files)
     const media = r.saved.media.map(m => {
       const found = !files.has(m.id) && items.find(x => isFileOf(m, x.file))
@@ -73,22 +73,17 @@ export function useProjectStorage({ project, media, setMedia, reset, readPeaks }
       files.set(m.id, found.file)
       return found.handle ? { ...m, handle: found.handle } : m
     })
-    const extra = items.filter(x => !media.some(m => files.get(m.id) === x.file)).map(x => x.file.name)
-    if (extra.length) toast.add({
-        title: plural(extra.length, { one: "# file isn't in your last project", other: "# files aren't in your last project" }),
-        description: `${list(extra)}. To work with new files, start fresh.`,
-      })
     const saved = { ...r.saved, media }
     if (files.size === media.length) apply(saved, files)
     else setRestore({ ...r, saved, files })
     return true
   }
 
-  const startFresh = () => {
-    play('close')
+  const discard = () => {
     clear().catch(() => {})
     setRestore(null)
   }
+  const startFresh = () => (play('close'), discard())
 
   return { loaded, restore, reconnect, locate, startFresh }
 }
