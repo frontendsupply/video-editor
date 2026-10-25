@@ -66,13 +66,17 @@ export async function load(): Promise<Saved | null> {
     req(tx.objectStore(MEDIA).getAll()) as Promise<SavedMedia[]>,
   ])
   const byId = new Map(rows.map(r => [r.id, r]))
-  if (!state?.ids.length || !state.ids.every(id => byId.has(id))) return null
+  if (state && !state.ids.every(id => byId.has(id))) return null
+  const media = state?.ids.map(id => byId.get(id)!) ?? []
+  await prune(new Set(media.flatMap(m => (m.converted ? [m.converted] : []))))
+  if (!media.length) return null
   // Nothing counts as written yet: the first save rewrites every record, with any handle found again since.
-  return { project: state.project, media: state.ids.map(id => byId.get(id)!), savedAt: state.savedAt }
+  return { project: state!.project, media, savedAt: state!.savedAt }
 }
 
 export const clear = async () => {
   written.clear()
+  await prune(new Set())
   const tx = (await open()).transaction([STATE, MEDIA], 'readwrite')
   tx.objectStore(STATE).clear()
   tx.objectStore(MEDIA).clear()
@@ -105,3 +109,13 @@ export const toMedia = ({ fileName: _, size: __, lastModified: ___, thumb, ...m 
   url: URL.createObjectURL(file),
   thumb: thumb && URL.createObjectURL(thumb),
 })
+
+// Playable copies of files the browser couldn't decode (see convert.ts) live in converted/<folder>/ in the browser's
+// private storage. Ones no saved file uses any more are removed on load, when no conversion can be running.
+export const convertedDir = async () => (await navigator.storage.getDirectory()).getDirectoryHandle('converted', { create: true })
+async function prune(keep: Set<string>) {
+  const dir = await convertedDir()
+  const old: string[] = []
+  for await (const [name] of dir as unknown as AsyncIterable<[string, FileSystemHandle]>) if (!keep.has(name)) old.push(name)
+  for (const name of old) await dir.removeEntry(name, { recursive: true })
+}

@@ -19,6 +19,7 @@ export type Media = {
   removed?: boolean // taken out of the bin; kept in memory so undo can bring its clips back (which shows it again)
   handle?: FileSystemFileHandle // where the file is on disk (Chromium), to read it again after a reload
   range?: [number, number] // a clip saved from Clip Preview: just this part of the file (source seconds)
+  converted?: string // a playable copy made on this device of a file the browser couldn't decode (its folder, see convert.ts)
 }
 
 // How long a bin entry is: the whole file, or the part a saved clip covers.
