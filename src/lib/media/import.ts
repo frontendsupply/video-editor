@@ -41,6 +41,7 @@ export async function importFile(file: File): Promise<Media> {
       height: video ? await video.getDisplayHeight() : 0,
       hasVideo: !!video,
       hasAudio: !!audio,
+      fps: video ? (await video.computePacketStats(120)).averagePacketRate : undefined,
     }
     if (video) media.thumb = await frameAt(video, Math.min(1, duration / 2))
     return media

@@ -1,9 +1,10 @@
 // Bringing files in: the picker, dropping anywhere on the window, probing them, and converting the ones the browser
 // can't decode. New files go on the timeline too: videos at the end of Video 1, sounds after the last one on Audio 1.
+// The first video in an empty project sets its frame rate.
 import { useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react'
 import { play } from 'cuelume'
 import { importFile, NeedsConversion, type Picked } from '@/lib/media/import'
-import { audio1End, newClip, type Media, type Project } from '@/lib/model'
+import { audio1End, nearestRate, newClip, type Media, type Project } from '@/lib/model'
 import { plural } from '@/lib/utils'
 import { toast } from '@/components/ui'
 import { useLatest } from './useLatest'
@@ -50,7 +51,13 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
         audioEnd += m.duration
         return c
       })
-      return { ...p, video: [...p.video, ...ok.filter(m => m.hasVideo).map(m => newClip(m))], audio: [...p.audio, ...audio] }
+      const first = !p.video.length && ok.find(m => m.hasVideo && m.fps)
+      return {
+        ...p,
+        ...(first && { fps: nearestRate(first.fps!) }),
+        video: [...p.video, ...ok.filter(m => m.hasVideo).map(m => newClip(m))],
+        audio: [...p.audio, ...audio],
+      }
     })
   }
   const add = useLatest(addFiles) // for the window's drop listener, registered once

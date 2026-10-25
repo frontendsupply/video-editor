@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep, nearestRate,
   type Clip, type Project,
 } from '../src/lib/model/index.ts'
 
@@ -63,6 +63,9 @@ eq(exportSize(p, sq), [2160, 2160], 'original size')
 eq(exportSize(p, sq, 720), [720, 720], '720p square')
 eq(exportSize({ ...p, aspect: '9:16' }, sq, 480), [480, 852], '480p portrait')
 eq(exportSize({ ...p, aspect: '16:9' }, sq, 1080), [1920, 1080], 'no upscale')
+
+// a new project's frame rate: the offered one nearest its first video's
+eq([23.976, 25, 29.97, 50, 59.94, 120].map(nearestRate), [24, 25, 30, 60, 60, 60], 'nearest frame rate')
 
 // overlay + audio lanes
 const o = proj([clip('a')], [clip('m', { start: 2, out: 4 })], [clip('x', { start: 3, out: 4, lane: 1 })])

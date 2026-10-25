@@ -135,8 +135,10 @@ async function copyPlan(p: Project, media: Record<string, ExportMedia>, W: numbe
       first ??= { codec: (await track.getCodec())!, config }
       if (Math.abs((await track.computePacketStats(120)).averagePacketRate - p.fps) > p.fps / 100) return dispose(), null
       const sink = new EncodedPacketSink(track)
-      const key = await sink.getKeyPacket(pl.clip.in + near, { verifyKeyPackets: true })
-      if (!key || Math.abs(key.timestamp - pl.clip.in) > near) return dispose(), null
+      // A file's first frame can sit a little after 0 (22 ms, say): a clip from the start begins there.
+      const from = Math.max(pl.clip.in, await track.getFirstTimestamp())
+      const key = await sink.getKeyPacket(from + near, { verifyKeyPackets: true })
+      if (!key || Math.abs(key.timestamp - from) > near) return dispose(), null
       if (pl.clip.out < (await track.computeDuration()) - near) {
         let last = -Infinity
         for await (const pkt of sink.packets(key, undefined, { metadataOnly: true })) {
