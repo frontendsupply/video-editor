@@ -6,10 +6,10 @@ import { Progress } from '@base-ui/react/progress'
 import { Tabs } from '@base-ui/react/tabs'
 import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
-import { bind, play, setEnabled, unlock } from 'cuelume'
+import { bind, play } from 'cuelume'
 import {
   Check, ChevronDown, ChevronLeft, ChevronRight, Clapperboard, Film, Maximize2, Music, Pause, Play, Plus, Redo2,
-  Scissors, SkipBack, SkipForward, Trash2, Undo2, Upload, Volume2, VolumeX, ZoomIn, ZoomOut,
+  Scissors, SkipBack, SkipForward, Trash2, Undo2, Upload, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { exportProject } from './export'
@@ -42,7 +42,6 @@ const FPS = [24, 25, 30, 60].map(f => ({ value: f, label: `${f}` }))
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
 // Keys inside these belong to the control, not to the editor shortcuts.
 const OWN_KEYS = 'input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="tab"], [role="alertdialog"]'
-const SOUND_KEY = 'editor-sound'
 const ZOOM_MIN = 2 // empty timeline; with clips, the zoom-out limit fits the whole edit
 const ZOOM_MAX = 200
 
@@ -59,13 +58,6 @@ function App() {
   const [binTab, setBinTab] = useState<'video' | 'audio'>('video')
   const [progress, setProgress] = useState<number | null>(null)
   const [fileOver, setFileOver] = useState(false)
-  const [sound, setSound] = useState(() => {
-    try {
-      return localStorage.getItem(SOUND_KEY) !== 'off'
-    } catch {
-      return true
-    }
-  })
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
@@ -92,7 +84,6 @@ function App() {
   const [outW, outH] = outputSize(project, media)
 
   useEffect(() => bind(), []) // sound data attributes on controls play UI sounds
-  useEffect(() => setEnabled(sound), [sound])
 
   useEffect(() => {
     const player = new Player(canvasRef.current!)
@@ -132,15 +123,15 @@ function App() {
     if (selected && !findPlaced(project, selected)) setSelected(null) // e.g. undo removed it
   }, [project, media])
 
-  // Zooming pivots on the selection (else the playhead): it stays where it was on screen, or comes to the middle if it
-  // was out of view. The scroll position before the zoom is remembered, since a shrinking timeline clamps it.
+  // Zooming pivots on the playhead: it stays where it was on screen, or comes to the middle if it was out of view.
+  // The scroll position before the zoom is remembered, since a shrinking timeline clamps it.
   const zoomed = useRef({ pps, scroll: 0 })
   useLayoutEffect(() => {
     const sc = scrollRef.current
     const before = zoomed.current
     zoomed.current = { pps, scroll: before.scroll }
     if (!sc || before.pps === pps) return
-    const t = range ? (range.a + range.b) / 2 : playerRef.current!.t
+    const t = playerRef.current!.t
     const x = t * before.pps + 16 - before.scroll // from the left edge of the visible timeline (lanes start 16 px in)
     sc.scrollLeft = t * pps + 16 - (x >= 0 && x <= sc.clientWidth ? x : sc.clientWidth / 2)
     zoomed.current.scroll = sc.scrollLeft
@@ -217,16 +208,6 @@ function App() {
     const t = playerRef.current!.t
     const r = edge === 'in' ? { a: t, b: Math.max(range?.b ?? duration, t) } : { a: Math.min(range?.a ?? 0, t), b: t }
     setRange(r.b - r.a > 0.01 ? r : null)
-  }
-
-  async function toggleSound() {
-    const on = !sound
-    if (on) await unlock()
-    setSound(on)
-    try {
-      localStorage.setItem(SOUND_KEY, on ? 'on' : 'off')
-    } catch {}
-    if (on) play('toggle')
   }
 
   async function addFiles(files: File[]) {
@@ -393,9 +374,6 @@ function App() {
           <button className={ribbon} onClick={del} disabled={!range && !selected}><Trash2 size={16} />Delete</button>
         </Tip>
         <div className="flex-1" />
-        <Tip label={sound ? 'Mute UI sounds' : 'Turn on UI sounds'}>
-          <button className={iconBtn} onClick={toggleSound} aria-label="UI sounds">{sound ? <Volume2 size={15} /> : <VolumeX size={15} />}</button>
-        </Tip>
         <Segmented label="Aspect ratio" value={project.aspect} items={ASPECTS} onChange={aspect => setProject(p => ({ ...p, aspect }))} />
         <span className="w-1" />
         <Segmented label="Fit" value={project.fit} items={FITS} onChange={fit => setProject(p => ({ ...p, fit }))} />
