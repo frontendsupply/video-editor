@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { bind, play } from 'cuelume'
 import { digitsFor, findPlaced, gridFor, projectDuration, trackName, type Media } from '@/lib/model'
 import type { Player } from '@/lib/player'
+import { plural } from '@/lib/utils'
 import { useClipPreview } from '@/hooks/useClipPreview'
 import { useEditor } from '@/hooks/useEditor'
 import { useExport } from '@/hooks/useExport'
@@ -203,16 +204,16 @@ export function App() {
         open={!!removing?.open}
         onOpenChange={open => !open && setRemoving(r => r && { ...r, open: false })}
         title={`Remove ${removing?.media.name}?`}
-        description={removing && `It's used by ${removing.clips} ${removing.clips === 1 ? 'clip' : 'clips'} on the timeline, which will be removed too. You can undo this.`}
-        confirm="Remove"
+        description={removing && `It's used by ${plural(removing.clips, { one: '# clip', other: '# clips' })} on the timeline, which will be removed too. You can undo this.`}
+        confirm="Remove file"
         onConfirm={() => removing && editor.removeMedia(removing.media.id)}
       />
       <ConfirmDialog
         open={askNew}
         onOpenChange={setAskNew}
         title="Start a new project?"
-        description="This clears the timeline and the media bin. Your files on disk aren't touched."
-        confirm="New project"
+        description="This clears the timeline and the media bin, and can't be undone. Your files on disk stay as they are."
+        confirm="Start new project"
         onConfirm={editor.newProject}
       />
       <ExportProgress progress={exporter.progress} onCancel={exporter.cancel} />

@@ -17,17 +17,17 @@ export class NeedsConversion extends Error {
 
 // Probe a local file. Only the bytes needed are read (headers + one frame), never the whole file.
 export async function importFile(file: File): Promise<Media> {
-  if (!file.size) throw new Error('the file is empty')
-  if (file.type.startsWith('image/')) throw new Error("pictures aren't supported, only video and sound")
+  if (!file.size) throw new Error('The file is empty. Check that it finished copying or downloading, then add it again.')
+  if (file.type.startsWith('image/')) throw new Error('Only video and audio files can be added.')
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
   try {
     const [video, audio] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()]).catch(e => {
       if (!(e instanceof UnsupportedInputFormatError)) throw e
       // A container it can't read, like AVI, goes to the converter; a file that isn't media at all doesn't.
-      if (file.type && !/^(video|audio)\//.test(file.type)) throw new Error("it isn't a video or sound file")
+      if (file.type && !/^(video|audio)\//.test(file.type)) throw new Error('Only video and audio files can be added.')
       throw new NeedsConversion('encode')
     })
-    if (!video && !audio) throw new Error('no video or sound found in it (it may be damaged, or still being written)')
+    if (!video && !audio) throw new Error("No video or audio found in it. If it's still being recorded or copied, add it again once that's done.")
     if (video && !(await video.canDecode())) throw new NeedsConversion('encode')
     if (audio && !(await audio.canDecode())) throw new NeedsConversion('copy')
     const duration = await input.computeDuration()
@@ -67,4 +67,4 @@ export async function thumbnail(file: File, t: number) {
 const toBlob = (c: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> =>
   c instanceof OffscreenCanvas
     ? c.convertToBlob({ type: 'image/jpeg', quality: 0.7 })
-    : new Promise((ok, fail) => c.toBlob(b => (b ? ok(b) : fail(new Error('thumbnail failed'))), 'image/jpeg', 0.7))
+    : new Promise((ok, fail) => c.toBlob(b => (b ? ok(b) : fail(new Error("Couldn't read its first frame. Try adding it again."))), 'image/jpeg', 0.7))

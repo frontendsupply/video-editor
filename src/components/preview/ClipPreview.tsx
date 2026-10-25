@@ -120,7 +120,7 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
           {media.peaks && <Wave peaks={media.peaks} />}
           <div className="pointer-events-none absolute inset-y-0 border-x border-accent bg-accent/15" style={{ left: pct(a), width: pct(b - a) }} />
           {(['a', 'b'] as const).map(edge => (
-            <Tip key={edge} label={edge === 'a' ? 'In: drag to move (I)' : 'Out: drag to move (O)'}>
+            <Tip key={edge} label={edge === 'a' ? 'In point · drag to move (I)' : 'Out point · drag to move (O)'}>
               <span
                 onPointerDown={e => drag(e, x => mark(edge, x))}
                 className="absolute inset-y-0 -ml-1 w-2 cursor-ew-resize"
@@ -134,7 +134,7 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
       <div className="flex h-8 shrink-0 items-center gap-2 border-t border-line bg-canvas px-1.5">
         <span className="w-28 pl-1 text-[11px] font-semibold tabular-nums">{timecode(t)}</span>
         <div className="flex flex-1 items-center justify-center gap-0.5">
-          <Tip label="Mark In (I)"><button className={headerIcon} onClick={() => mark('a')} aria-label="Mark In"><ArrowRightFromLine size={13} /></button></Tip>
+          <Tip label="Mark in point (I)"><button className={headerIcon} onClick={() => mark('a')} aria-label="Mark in point"><ArrowRightFromLine size={13} /></button></Tip>
           <Tip label="Previous frame (←)"><button className={headerIcon} onClick={() => seek(t - 1 / fps)}><ChevronLeft size={14} /></button></Tip>
           <Tip label={playing ? 'Pause (Space)' : 'Play (Space)'}>
             <button className="grid size-6 place-items-center text-ink transition-colors hover:bg-ink/5" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
@@ -142,7 +142,7 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
             </button>
           </Tip>
           <Tip label="Next frame (→)"><button className={headerIcon} onClick={() => seek(t + 1 / fps)}><ChevronRight size={14} /></button></Tip>
-          <Tip label="Mark Out (O)"><button className={headerIcon} onClick={() => mark('b')} aria-label="Mark Out"><ArrowLeftFromLine size={13} /></button></Tip>
+          <Tip label="Mark out point (O)"><button className={headerIcon} onClick={() => mark('b')} aria-label="Mark out point"><ArrowLeftFromLine size={13} /></button></Tip>
         </div>
         <span className="truncate text-[11px] text-muted tabular-nums">
           {timecode(a)} – {timecode(b)} · {lengthLabel(b - a, 3)}

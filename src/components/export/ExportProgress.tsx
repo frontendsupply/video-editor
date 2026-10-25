@@ -12,7 +12,7 @@ export function ExportProgress({ progress, onCancel }: { progress: number | null
         <AlertDialog.Popup className={dialogPopup}>
           <div className="grid gap-1">
             <AlertDialog.Title className="text-sm font-semibold">Exporting video</AlertDialog.Title>
-            <AlertDialog.Description className="text-[11px] text-muted">Encoding on your device's GPU. Nothing is uploaded.</AlertDialog.Description>
+            <AlertDialog.Description className="text-[11px] text-muted">Rendering on this device. Nothing is uploaded.</AlertDialog.Description>
           </div>
           <Progress.Root className="grid grid-cols-[1fr_auto] gap-2" value={progress ?? 100}>
             <Progress.Label className="text-[11px] font-medium text-muted">Progress</Progress.Label>

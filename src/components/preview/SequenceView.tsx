@@ -46,8 +46,8 @@ export function SequenceView(props: {
               className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-ink/60 hover:border-ink/25"
             >
               <span className="grid size-12 place-items-center rounded-md bg-ink/6"><Upload size={18} /></span>
-              <span className="text-sm font-semibold text-ink">Drop videos & audio here</span>
-              <span className="text-[11px] text-muted">or click to import · files never leave your device</span>
+              <span className="text-sm font-semibold text-ink">Drop video and audio files here</span>
+              <span className="text-[11px] text-muted">or click to add media · files never leave your device</span>
             </motion.button>
           )
         )}

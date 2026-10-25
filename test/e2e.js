@@ -138,7 +138,7 @@ export async function newProject() {
   if (b && !b.disabled) {
     b.click()
     await sleep(500)
-    ;[...document.querySelectorAll('[role="alertdialog"] button')].find(b => b.textContent.trim() === 'New project').click()
+    ;[...document.querySelectorAll('[role="alertdialog"] button')].find(b => b.textContent.trim() === 'Start new project').click()
     await sleep(800)
   }
   await fresh()

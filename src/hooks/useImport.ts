@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetS
 import { play } from 'cuelume'
 import { importFile, NeedsConversion, type Picked } from '@/lib/media/import'
 import { audio1End, newClip, type Media, type Project } from '@/lib/model'
+import { plural } from '@/lib/utils'
 import { toast } from '@/components/ui'
 import { useLatest } from './useLatest'
 
@@ -36,7 +37,7 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
     const failed = results.flatMap((r, i) => (r.status === 'rejected' && !convertible(r, i) ? [`${items[i].file.name}: ${r.reason?.message ?? r.reason}`] : []))
     if (failed.length) {
       play('error')
-      toast.add({ title: "Couldn't import", description: failed.join('\n'), type: 'error', timeout: 0 })
+      toast.add({ title: plural(failed.length, { one: "Couldn't add # file", other: "Couldn't add # files" }), description: failed.join('\n'), type: 'error', timeout: 0 })
     }
     if (!ok.length) return
     play('success', { emphasis: 'subtle' })
@@ -67,7 +68,7 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
       title: `Waiting to convert ${file.name}`,
       description:
         video === 'copy'
-          ? "Its sound can't be played here, so it's being converted; the video is copied as it is."
+          ? "Its audio can't be played here, so it's being converted. The video is copied as it is."
           : "This browser can't decode it, so a playable copy is being made on this device. Long videos take a while.",
       timeout: 0,
       onClose: () => ac.abort(),

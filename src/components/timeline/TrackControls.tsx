@@ -10,7 +10,7 @@ export function TrackControls(props: { kind: LaneKind; removable: string | null;
   const noun = props.kind === 'overlay' ? 'video' : 'audio'
   return (
     <div className="flex h-full items-center justify-end gap-0.5 px-1.5">
-      <Tip label={props.removable ? `Remove ${props.removable}` : `No added ${noun} track to remove`}>
+      <Tip label={props.removable ? `Remove ${props.removable}` : `Only ${noun} tracks you add can be removed`}>
         <button className={btn} disabled={!props.removable} onClick={props.onRemove} aria-label={`Remove ${noun} track`}>
           <Minus size={13} />
         </button>

@@ -20,7 +20,7 @@ export async function convert(file: File, video: 'encode' | 'copy', onProgress: 
     const encode = ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '18', '-pix_fmt', 'yuv420p', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2'] // 8-bit, even size
     const run = (v: string[]) => ffmpeg.exec(['-y', '-i', `/in/${file.name}`, '-map', '0:v:0?', '-map', '0:a:0?', ...v, '-c:a', 'aac', '-b:a', '192k', '/out.mp4'], -1, { signal })
     // A copied video that MP4 can't hold is re-encoded after all.
-    if ((video === 'copy' ? await run(['-c:v', 'copy']) : 1) !== 0 && (await run(encode)) !== 0) throw new Error("the software decoder couldn't read it either")
+    if ((video === 'copy' ? await run(['-c:v', 'copy']) : 1) !== 0 && (await run(encode)) !== 0) throw new Error("It may be damaged, or in a format even the converter can't read. Save it again as MP4 and add that copy.")
     const data = (await ffmpeg.readFile('/out.mp4')) as Uint8Array<ArrayBuffer>
     const folder = crypto.randomUUID()
     const dir = await (await convertedDir()).getDirectoryHandle(folder, { create: true })

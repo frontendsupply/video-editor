@@ -44,12 +44,12 @@ export function useExport({ project, media, playerRef }: { project: Project; med
       const secs = ((performance.now() - t0) / 1000).toFixed(1)
       play('success', { emphasis: 'strong' })
       const how = lossless ? `in ${secs}s · video copied without re-encoding` : `rendered in ${secs}s`
-      toast.add({ title: 'Export finished', description: `${file?.name ?? name} · ${preset.label} · ${clock(projectDuration(edit))} ${how}` })
+      toast.add({ title: 'Video exported', description: `${file?.name ?? name} · ${preset.label} · ${clock(projectDuration(edit))} ${how}` })
     } catch (e) {
       if (ac.signal.aborted) play('close')
       else {
         play('error')
-        toast.add({ title: 'Export failed', description: (e as Error).message, type: 'error', timeout: 0 })
+        toast.add({ title: "Couldn't export the video", description: (e as Error).message, type: 'error', timeout: 0 })
       }
     } finally {
       setProgress(null)

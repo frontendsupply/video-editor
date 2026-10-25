@@ -45,7 +45,7 @@ export function MediaCard(props: {
             <button
               onClick={props.onToggle}
               aria-pressed={used}
-              aria-label={used ? 'Take off the timeline' : 'Put on the timeline'}
+              aria-label="On the timeline"
               className={cn(
                 'absolute top-1 left-1 grid size-4 place-items-center rounded-xs transition-[opacity,color]',
                 used ? 'bg-accent text-white' : 'bg-white/90 text-transparent ring-1 ring-ink/25 hover:text-muted',
@@ -58,12 +58,12 @@ export function MediaCard(props: {
           <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{clock(binLength(m))}</span>
           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {m.hasVideo && (
-              <Tip label="Append to video track">
+              <Tip label="Append to the video track">
                 <button data-cuelume-tap="" className={quick} onClick={props.onAppendVideo}><Film size={10} /></button>
               </Tip>
             )}
             {m.hasAudio && (
-              <Tip label="Add audio at playhead">
+              <Tip label="Add audio at the playhead">
                 <button data-cuelume-tap="" className={quick} onClick={props.onAddAudio}><Music size={10} /></button>
               </Tip>
             )}
@@ -87,7 +87,7 @@ export function MediaCard(props: {
               <span className="flex items-center gap-2"><MonitorPlay size={13} /> Open in Clip Preview</span>
             </ContextMenu.Item>
             <ContextMenu.Item className={menuItem} onClick={props.onRemove}>
-              <span className="flex items-center gap-2"><Trash2 size={13} /> Remove</span>
+              <span className="flex items-center gap-2"><Trash2 size={13} /> Remove file</span>
             </ContextMenu.Item>
           </ContextMenu.Popup>
         </ContextMenu.Positioner>

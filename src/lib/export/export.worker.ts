@@ -78,7 +78,7 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
     if (plan) output.addVideoTrack((video = new EncodedVideoPacketSource(plan.codec))) // the files' own timing
     else {
       const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width: W, height: H, frameRate: p.fps, quality })
-      if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video`)
+      if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video. Choose a smaller size, such as 720p, and export again.`)
       canvas = new OffscreenCanvas(W, H)
       output.addVideoTrack((video = new VideoSampleSource({ codec: videoCodec, quality })), { frameRate: p.fps })
     }
