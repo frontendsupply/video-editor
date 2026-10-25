@@ -10,7 +10,7 @@ import { ArrowLeftRight, Film, Layers, Music, Plus } from 'lucide-react'
 import {
   addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, layoutFree, layoutVideo, moveClip, moveVideoClip, projectDuration, removeClip,
   removeTrack, renameTrack, slideVideoClip, snapPoints, snapShift, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio,
-  updateClip, type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type Range, type SplitTarget,
+  updateClip, type Clip, type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type Range, type SplitTarget,
 } from '@/lib/model'
 import { cn, plural } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui'
@@ -40,6 +40,7 @@ type Props = {
   onDeleteRange: () => void
   onCrop: () => void
   onExport: (preset: ExportPreset, region: Range) => void
+  onSaveAudio: (clip: Clip) => void
   onMark: (edge: 'in' | 'out') => void
   playing: boolean
   onPlace: (mediaId: string, target: DropTarget, t: number) => void
@@ -611,6 +612,7 @@ export function Timeline(props: Props) {
                   play('tap', { emphasis: 'strong' })
                   onChange(unlinkAudio(project, id))
                 }}
+                onSaveAudio={props.onSaveAudio}
                 onDeleteClip={id => {
                   play('close', { emphasis: 'strong' })
                   onChange(removeClip(project, id))

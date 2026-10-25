@@ -1,7 +1,7 @@
 // The timeline's one right-click menu: inside the selected range it acts on the range, on a clip on that clip.
 import { ContextMenu } from '@base-ui/react/context-menu'
-import { ChevronRight, Crop, Download, Scissors, Trash2, Unlink } from 'lucide-react'
-import type { ExportPreset, Media, Placed, Project, Range } from '@/lib/model'
+import { ChevronRight, Crop, Download, FileAudio, Scissors, Trash2, Unlink } from 'lucide-react'
+import type { Clip, ExportPreset, Media, Placed, Project, Range } from '@/lib/model'
 import { cn } from '@/lib/utils'
 import { kbd, menuItem, popup } from '@/components/ui'
 import { ExportItems } from '@/components/export/ExportItems'
@@ -17,6 +17,7 @@ export function TimelineMenu(props: {
   onExport: (preset: ExportPreset, region: Range) => void
   onFps: (fps: number) => void
   onUnlink: (id: string) => void
+  onSaveAudio: (clip: Clip) => void
   onDeleteClip: (id: string) => void
 }) {
   const { target, range, project, media } = props
@@ -59,6 +60,12 @@ export function TimelineMenu(props: {
               >
                 <span className="flex items-center gap-2"><Unlink size={13} /> Unlink audio</span>
               </ContextMenu.Item>
+              {/* a video's sound, unlinked onto an audio track */}
+              {media[target.clip.mediaId].hasVideo && project.audio.some(c => c.id === target.clip.id) && (
+                <ContextMenu.Item className={menuItem} onClick={() => props.onSaveAudio(target.clip)}>
+                  <span className="flex items-center gap-2"><FileAudio size={13} /> Save audio clip as new file</span>
+                </ContextMenu.Item>
+              )}
               <ContextMenu.Item className={menuItem} onClick={() => props.onDeleteClip(target.clip.id)}>
                 <span className="flex items-center gap-2"><Trash2 size={13} /> Delete clip</span><kbd className={kbd}>⌫</kbd>
               </ContextMenu.Item>

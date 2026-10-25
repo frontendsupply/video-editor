@@ -1,9 +1,9 @@
 // Exporting the edit, or a range of it: asks where to save (streaming straight to disk where the browser can), shows
-// the progress, and reports how it went.
+// the progress, and reports how it went. Also saves one audio clip's sound as an audio file.
 import { useRef, useState, type RefObject } from 'react'
 import { play } from 'cuelume'
-import { exportProject } from '@/lib/export/export'
-import { clock, cropRange, projectDuration, type ExportPreset, type Media, type Project, type Range } from '@/lib/model'
+import { exportProject, saveClipAudio } from '@/lib/export/export'
+import { clock, cropRange, projectDuration, type Clip, type ExportPreset, type Media, type Project, type Range } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { toast } from '@/components/ui'
 
@@ -34,13 +34,7 @@ export function useExport({ project, media, playerRef }: { project: Project; med
         const pct = Math.floor(f * 100)
         if (pct !== last) setProgress((last = pct))
       }, ac.signal, preset, project)
-      if (blob) {
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(blob)
-        a.download = name
-        a.click()
-        setTimeout(() => URL.revokeObjectURL(a.href), 60_000)
-      }
+      if (blob) download(blob, name)
       const secs = ((performance.now() - t0) / 1000).toFixed(1)
       play('success', { emphasis: 'strong' })
       const how = lossless ? `in ${secs}s · video copied without re-encoding` : `rendered in ${secs}s`
@@ -56,5 +50,46 @@ export function useExport({ project, media, playerRef }: { project: Project; med
     }
   }
 
-  return { progress, start, cancel: () => abort.current?.abort() }
+  // The clip's part of its file's sound, as it is in the file (the clip's speed and volume aren't applied).
+  async function saveAudio(clip: Clip) {
+    const name = `${media[clip.mediaId].name.replace(/\.[^.]*$/, '')}.m4a`
+    let file: FileSystemFileHandle | null = null
+    if (window.showSaveFilePicker) {
+      try {
+        file = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'M4A audio', accept: { 'audio/mp4': ['.m4a'] } }] })
+      } catch {
+        return // picker dismissed
+      }
+    }
+    // One toast from start to finish: a progress bar and Cancel while saving (see Toasts), then how it went.
+    const ac = new AbortController()
+    const id = toast.add({
+      title: 'Saving audio…',
+      description: file?.name ?? name,
+      type: 'loading',
+      data: { progress: 0 },
+      actionProps: { children: 'Cancel', onClick: () => ac.abort() },
+    })
+    const done = { data: undefined, actionProps: undefined }
+    try {
+      const blob = await saveClipAudio(media[clip.mediaId].file, clip.in, clip.out, file, progress => toast.update(id, { data: { progress } }), ac.signal)
+      if (blob) download(blob, name)
+      play('success')
+      toast.update(id, { ...done, title: 'Audio saved', type: 'success' })
+    } catch (e) {
+      if (ac.signal.aborted) return (play('close'), toast.close(id))
+      play('error')
+      toast.update(id, { ...done, title: "Couldn't save the audio", description: (e as Error).message, type: 'error', timeout: 0 })
+    }
+  }
+
+  return { progress, start, saveAudio, cancel: () => abort.current?.abort() }
+}
+
+function download(blob: Blob, name: string) {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(blob)
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 60_000)
 }
