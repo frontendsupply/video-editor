@@ -1,7 +1,8 @@
-// Exporting to MP4, the page's side: starts the export worker and renders the audio mix for it.
+// Exporting to MP4, the page's side: starts the export worker and renders the audio mix for it. Also saves one clip's sound.
 import { ALL_FORMATS, AudioBufferSink, BlobSource, Input, type InputAudioTrack } from 'mediabunny'
 import { SimpleFilter, SoundTouch, WebAudioBufferSource } from 'soundtouchjs'
 import { MIX_RATE, layoutFree, layoutVideo, projectDuration, sourceTime, type ExportPreset, type Media, type Project } from '@/lib/model'
+import type { FromAudioWorker, ToAudioWorker } from './audio.worker'
 import type { ExportMedia, FromWorker, ToWorker } from './export.worker'
 
 // Renders the timeline to MP4 using the GPU's hardware encoder (WebCodecs). The video, muxing and file writing run in
@@ -52,6 +53,32 @@ export async function exportProject(
     signal.removeEventListener('abort', cancel)
     worker.terminate() // after an error or cancel too: an uncommitted file stream is discarded with it
   }
+}
+
+// One clip's sound, `start`–`end` of its file in source seconds, as an audio file (.m4a), made in a worker
+// (audio.worker.ts). Streams to the file handle, or returns a Blob. Aborting settles at once; the worker drops the
+// unfinished file (a file stream only commits when it's closed) and then stops.
+export function saveClipAudio(
+  file: File,
+  start: number,
+  end: number,
+  handle: FileSystemFileHandle | null,
+  onProgress: (fraction: number) => void,
+  signal: AbortSignal,
+): Promise<Blob | null> {
+  const worker = new Worker(new URL('./audio.worker.ts', import.meta.url), { type: 'module' })
+  const send = (m: ToAudioWorker) => worker.postMessage(m)
+  return new Promise<Blob | null>((ok, fail) => {
+    signal.addEventListener('abort', () => (send({ type: 'cancel' }), fail(signal.reason)), { once: true })
+    worker.onmessage = ({ data }: MessageEvent<FromAudioWorker>) => {
+      if (data.type === 'progress') return signal.aborted || onProgress(data.fraction)
+      worker.terminate() // finished, failed, or cancelled and the file let go
+      if (data.type === 'done') ok(data.buffer && new Blob([data.buffer], { type: 'audio/mp4' }))
+      else fail(new Error(data.message))
+    }
+    worker.onerror = e => (worker.terminate(), fail(new Error(e.message)))
+    send({ type: 'start', job: { file, start, end, handle } })
+  })
 }
 
 // The mix is rendered CHUNK seconds at a time and handed to the encoder as it goes, so memory stays flat however

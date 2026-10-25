@@ -174,6 +174,7 @@ export function App() {
           onDeleteRange={editor.del}
           onCrop={editor.crop}
           onExport={exporter.start}
+          onSaveAudio={exporter.saveAudio}
           onMark={editor.mark}
           playing={playing}
           onPlace={editor.place}
