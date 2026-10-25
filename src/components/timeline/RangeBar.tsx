@@ -80,7 +80,7 @@ export function RangeBar(props: {
             </Tip>
             <Menu.Portal>
               <Menu.Positioner className="z-20 outline-none" sideOffset={6}>
-                <Menu.Popup className={cn(popup, 'w-60')}>
+                <Menu.Popup className={cn(popup, 'w-52')}>
                   <ExportItems project={props.project} media={props.media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} />
                 </Menu.Popup>
               </Menu.Positioner>

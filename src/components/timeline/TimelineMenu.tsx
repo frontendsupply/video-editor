@@ -43,7 +43,7 @@ export function TimelineMenu(props: {
                 </ContextMenu.SubmenuTrigger>
                 <ContextMenu.Portal>
                   <ContextMenu.Positioner className="z-20 outline-none" sideOffset={4}>
-                    <ContextMenu.Popup className={cn(popup, 'w-60')}>
+                    <ContextMenu.Popup className={cn(popup, 'w-52')}>
                       <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} />
                     </ContextMenu.Popup>
                   </ContextMenu.Positioner>

@@ -50,7 +50,7 @@ export function Header(props: {
         </Menu.Trigger>
         <Menu.Portal>
           <Menu.Positioner className="z-20 outline-none" sideOffset={6} align="end">
-            <Menu.Popup className={cn(popup, 'w-60')}>{props.exporting && <ExportItems {...props.exporting} />}</Menu.Popup>
+            <Menu.Popup className={cn(popup, 'w-52')}>{props.exporting && <ExportItems {...props.exporting} />}</Menu.Popup>
           </Menu.Positioner>
         </Menu.Portal>
       </Menu.Root>

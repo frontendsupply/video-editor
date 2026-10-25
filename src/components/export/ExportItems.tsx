@@ -3,12 +3,12 @@ import { Menu } from '@base-ui/react/menu'
 import { play } from 'cuelume'
 import { EXPORT_PRESETS, exportSize, outputSize, type ExportPreset, type Media, type Project } from '@/lib/model'
 import { cn } from '@/lib/utils'
-import { groupLabel, menuItem, menuSeparator } from '@/components/ui'
+import { menuItem, menuSeparator } from '@/components/ui'
 
 const FPS = [24, 25, 30, 60]
 
-// The export menu's contents, for the header Export and the selection's: frame rate (stays open while you pick),
-// then the quality choices with their output size (picking one exports).
+// The export menu's contents, for the header Export and the selection's: frame rate in one row (stays open while you
+// pick), then the sizes to export at, each with its output size (picking one exports).
 export function ExportItems(props: {
   project: Project
   media: Record<string, Media>
@@ -26,14 +26,15 @@ export function ExportItems(props: {
           props.onFps(fps as number)
         }}
         aria-label="Frame rate"
+        className="flex items-center justify-between gap-3 py-0.5 pr-1 pl-2.5"
       >
-        <div className={groupLabel}>Frame rate</div>
-        <div className="mx-1.5 mb-1.5 flex rounded-md bg-ink/5 p-0.5">
+        <span className="text-muted">Frame rate</span>
+        <div className="flex gap-px">
           {FPS.map(fps => (
             <Menu.RadioItem
               key={fps}
               value={fps}
-              className="h-6 flex-1 cursor-default rounded-sm text-center text-[11px] leading-6 font-medium text-ink/55 tabular-nums outline-none select-none data-checked:bg-surface data-checked:text-ink data-checked:ring-1 data-checked:ring-line data-highlighted:text-ink"
+              className="h-5 cursor-default rounded-sm px-1.5 text-[11px] leading-5 text-muted tabular-nums outline-none select-none data-checked:bg-ink/6 data-checked:font-medium data-checked:text-ink data-highlighted:text-ink"
             >
               {fps}
             </Menu.RadioItem>
@@ -41,19 +42,15 @@ export function ExportItems(props: {
         </div>
       </Menu.RadioGroup>
       <Menu.Separator className={menuSeparator} />
-      <Menu.Group>
-        <Menu.GroupLabel className={groupLabel}>Export quality</Menu.GroupLabel>
-        {EXPORT_PRESETS.filter(x => !x.short || x.short < Math.min(W, H)).map(preset => {
-          const [w, h] = exportSize(project, media, preset.short)
-          return (
-            <Menu.Item key={preset.label} onClick={() => onPick(preset)} className={cn(menuItem, 'grid grid-cols-[1fr_auto] py-2')}>
-              <span className="font-semibold">{preset.label}</span>
-              <span className="text-[10px] opacity-55 tabular-nums">{w}×{h}</span>
-              <span className="col-span-2 text-[11px] opacity-55">{preset.hint}</span>
-            </Menu.Item>
-          )
-        })}
-      </Menu.Group>
+      {EXPORT_PRESETS.filter(x => !x.short || x.short < Math.min(W, H)).map(preset => {
+        const [w, h] = exportSize(project, media, preset.short)
+        return (
+          <Menu.Item key={preset.label} onClick={() => onPick(preset)} className={cn(menuItem, 'py-1')}>
+            {preset.label}
+            <span className="text-[10px] text-muted tabular-nums">{w}×{h}</span>
+          </Menu.Item>
+        )
+      })}
     </>
   )
 }
