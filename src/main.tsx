@@ -64,6 +64,8 @@ function App() {
   const pps = Math.min(zoomMax, Math.max(zoomMin, zoom))
   const ppsRef = useRef(pps)
   ppsRef.current = pps
+  const viewWRef = useRef(viewW) // visible width of the lanes (the scroll area minus the track names)
+  viewWRef.current = viewW
   const digits = digitsFor(gridFor(pps, project.fps)) // timeline times show only what the zoom can place
   const digitsRef = useRef(digits)
   digitsRef.current = digits
@@ -82,14 +84,14 @@ function App() {
       timeRef.current!.textContent = timecode(t)
       if (playheadRef.current) playheadRef.current.style.transform = `translateX(${x}px)`
       const sc = scrollRef.current
-      if (sc && player.playing && (x < sc.scrollLeft || x > sc.scrollLeft + sc.clientWidth - 40)) sc.scrollLeft = x - 40
+      if (sc && player.playing && (x < sc.scrollLeft || x > sc.scrollLeft + viewWRef.current - 40)) sc.scrollLeft = x - 40
       const label = playheadLabelRef.current
       if (!label || !sc) return
       label.textContent = timecode(t, digitsRef.current && 1) // at most tenths: the clock under the preview has the ms
       // The pill is centred on the playhead (~34 px each side): nudge it (and the [ ] beside it) to stay inside the
       // visible timeline.
       const left = x + 16 - sc.scrollLeft // the lanes start 16 px into the scroll area
-      playheadRef.current!.style.setProperty('--nudge', `${Math.max(0, 34 - left) - Math.max(0, 34 - (sc.clientWidth - left))}px`)
+      playheadRef.current!.style.setProperty('--nudge', `${Math.max(0, 34 - left) - Math.max(0, 34 - (viewWRef.current - left))}px`)
     }
     playerRef.current = player
     // Scrolling moves the visible edges, so re-fit the pill (and remember where zooming starts from).
@@ -120,7 +122,7 @@ function App() {
     if (!sc || before.pps === pps) return
     const t = playerRef.current!.t
     const x = t * before.pps + 16 - before.scroll // from the left edge of the visible timeline (lanes start 16 px in)
-    sc.scrollLeft = t * pps + 16 - (x >= 0 && x <= sc.clientWidth ? x : sc.clientWidth / 2)
+    sc.scrollLeft = t * pps + 16 - (x >= 0 && x <= viewW ? x : viewW / 2)
     zoomed.current.scroll = sc.scrollLeft
   }, [pps])
   useEffect(() => playerRef.current!.onTime(playerRef.current!.t), [pps])
