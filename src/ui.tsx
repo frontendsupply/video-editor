@@ -1,25 +1,24 @@
 // Styled UI primitives, shared class strings, and UI sounds.
-import { useId, type ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { Menu } from '@base-ui/react/menu'
 import { Select as BaseSelect } from '@base-ui/react/select'
 import { Slider as BaseSlider } from '@base-ui/react/slider'
 import { Toast } from '@base-ui/react/toast'
-import { Toggle } from '@base-ui/react/toggle'
-import { ToggleGroup } from '@base-ui/react/toggle-group'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { play } from 'cuelume'
-import { Check, ChevronsUpDown, X } from 'lucide-react'
-import { motion } from 'motion/react'
-import { EXPORT_PRESETS, exportSize, outputSize, type ExportPreset, type Media, type Project } from './model'
+import { Check, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
+import { EXPORT_PRESETS, exportSize, outputSize, type Aspect, type ExportPreset, type Fit, type Media, type Project } from './model'
 
 export const card = 'rounded-lg bg-white ring-1 ring-ink/8'
 export const pill =
   'inline-flex items-center gap-1.5 h-8 px-3 rounded-md bg-ink/6 text-[11px] font-medium text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink disabled:opacity-40 disabled:pointer-events-none'
 export const ghost =
   'inline-flex items-center gap-1.5 h-7.5 px-2.5 rounded-md text-[11px] text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-35 disabled:pointer-events-none'
-// Ribbon button: icon over a small label.
-export const ribbon =
-  'flex h-11 min-w-12 flex-col items-center justify-center gap-0.5 rounded-md px-2 text-[10px] text-ink/65 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-35 disabled:pointer-events-none'
+// Header controls: one slim row, small text and icons.
+export const headerBtn =
+  'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px] text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-35 disabled:pointer-events-none'
+export const headerIcon =
+  'grid size-6 place-items-center rounded-md text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink disabled:opacity-30 disabled:pointer-events-none'
 export const popup =
   'origin-(--transform-origin) rounded-lg bg-white p-1 ring-1 ring-ink/10 outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0'
 // Centered dialog (AlertDialog) over a dimmed, lightly blurred page.
@@ -29,14 +28,14 @@ export const dialogPopup = `${card} fixed top-1/2 left-1/2 grid w-[min(380px,cal
 export const menuItem =
   'flex cursor-default items-center justify-between gap-4 rounded-sm px-2.5 py-1.5 outline-none select-none data-disabled:opacity-40 data-highlighted:bg-ink/6'
 const label = 'text-[11px] font-medium text-ink/50'
-const spring = { type: 'spring', bounce: 0.15, duration: 0.35 } as const
+const groupLabel = 'px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase'
+const FPS = [24, 25, 30, 60]
 
 export function Select<T>(props: {
   label: string
   value: T
   items: { value: T; label: string }[]
   onChange: (value: T) => void
-  compact?: boolean // inline "30 FPS" trigger for the header bar
 }) {
   return (
     <BaseSelect.Root
@@ -49,17 +48,10 @@ export function Select<T>(props: {
         props.onChange(v as T)
       }}
     >
-      <div className={props.compact ? 'flex items-center' : 'flex flex-col gap-1.5'}>
-        <BaseSelect.Label className={props.compact ? 'sr-only' : label}>{props.label}</BaseSelect.Label>
-        <BaseSelect.Trigger
-          className={
-            props.compact
-              ? 'flex h-8 items-center gap-1.5 rounded-md px-3 text-[10px] font-bold tracking-wide text-ink/55 uppercase hover:bg-ink/5 hover:text-ink data-popup-open:bg-ink/5 data-popup-open:text-ink'
-              : 'flex h-8 items-center justify-between gap-2 rounded-md bg-ink/6 px-3 font-medium hover:bg-ink/10 data-popup-open:bg-ink/10'
-          }
-        >
+      <div className="flex flex-col gap-1.5">
+        <BaseSelect.Label className={label}>{props.label}</BaseSelect.Label>
+        <BaseSelect.Trigger className="flex h-8 items-center justify-between gap-2 rounded-md bg-ink/6 px-3 font-medium hover:bg-ink/10 data-popup-open:bg-ink/10">
           <BaseSelect.Value />
-          {props.compact && <span>{props.label}</span>}
           <BaseSelect.Icon className="opacity-50">
             <ChevronsUpDown size={12} />
           </BaseSelect.Icon>
@@ -86,45 +78,6 @@ export function Select<T>(props: {
         </BaseSelect.Positioner>
       </BaseSelect.Portal>
     </BaseSelect.Root>
-  )
-}
-
-// Segmented control; the white active pill slides between options.
-export function Segmented<T extends string>(props: {
-  label: string
-  value: T
-  items: { value: T; label: string; tip?: string }[]
-  onChange: (value: T) => void
-}) {
-  const pillId = useId()
-  return (
-    <ToggleGroup
-      aria-label={props.label}
-      value={[props.value]}
-      onValueChange={([v]) => v && props.onChange(v as T)}
-      className="flex rounded-md bg-ink/5 p-0.5"
-    >
-      {props.items.map(it => {
-        const toggle = (
-          <Toggle
-            key={it.value}
-            value={it.value}
-            data-cuelume-select=""
-            className="relative h-7 rounded-sm px-3 text-[10px] font-bold tracking-wide text-ink/45 uppercase hover:text-ink/80 data-pressed:text-ink"
-          >
-            {it.value === props.value && (
-              <motion.span
-                layoutId={pillId}
-                transition={spring}
-                className="absolute inset-0 rounded-sm bg-white ring-1 ring-ink/10"
-              />
-            )}
-            <span className="relative">{it.label}</span>
-          </Toggle>
-        )
-        return it.tip ? <Tip key={it.value} label={it.tip}>{toggle}</Tip> : toggle
-      })}
-    </ToggleGroup>
   )
 }
 
@@ -163,23 +116,138 @@ export function Slider(props: {
   )
 }
 
-// Export quality choices with their output size, for the header Export menu and the selection's Export.
-export function ExportItems({ project, media, onPick }: { project: Project; media: Record<string, Media>; onPick: (preset: ExportPreset) => void }) {
+// The export menu's contents, for the header Export and the selection's: frame rate (stays open while you pick),
+// then the quality choices with their output size (picking one exports).
+export function ExportItems(props: {
+  project: Project
+  media: Record<string, Media>
+  onPick: (preset: ExportPreset) => void
+  onFps: (fps: number) => void
+}) {
+  const { project, media, onPick } = props
   const [W, H] = outputSize(project, media)
   return (
-    <Menu.Group>
-      <Menu.GroupLabel className="px-2.5 pt-1.5 pb-1 text-[10px] font-semibold tracking-wide text-ink/40 uppercase">Export quality</Menu.GroupLabel>
-      {EXPORT_PRESETS.filter(x => !x.short || x.short < Math.min(W, H)).map(preset => {
-        const [w, h] = exportSize(project, media, preset.short)
-        return (
-          <Menu.Item key={preset.label} onClick={() => onPick(preset)} className={`${menuItem} grid grid-cols-[1fr_auto] py-2`}>
-            <span className="font-semibold">{preset.label}</span>
-            <span className="text-[10px] opacity-55 tabular-nums">{w}×{h}</span>
-            <span className="col-span-2 text-[11px] opacity-55">{preset.hint}</span>
-          </Menu.Item>
-        )
-      })}
-    </Menu.Group>
+    <>
+      <Menu.RadioGroup
+        value={project.fps}
+        onValueChange={fps => {
+          play('select', { emphasis: 'subtle' })
+          props.onFps(fps as number)
+        }}
+        aria-label="Frame rate"
+      >
+        <div className={groupLabel}>Frame rate</div>
+        <div className="mx-1.5 mb-1.5 flex rounded-md bg-ink/5 p-0.5">
+          {FPS.map(fps => (
+            <Menu.RadioItem
+              key={fps}
+              value={fps}
+              className="h-6 flex-1 cursor-default rounded-sm text-center text-[11px] leading-6 font-medium text-ink/55 tabular-nums outline-none select-none data-checked:bg-white data-checked:text-ink data-checked:ring-1 data-checked:ring-ink/10 data-highlighted:text-ink"
+            >
+              {fps}
+            </Menu.RadioItem>
+          ))}
+        </div>
+      </Menu.RadioGroup>
+      <Menu.Separator className="mx-1 my-1 h-px bg-ink/6" />
+      <Menu.Group>
+        <Menu.GroupLabel className={groupLabel}>Export quality</Menu.GroupLabel>
+        {EXPORT_PRESETS.filter(x => !x.short || x.short < Math.min(W, H)).map(preset => {
+          const [w, h] = exportSize(project, media, preset.short)
+          return (
+            <Menu.Item key={preset.label} onClick={() => onPick(preset)} className={`${menuItem} grid grid-cols-[1fr_auto] py-2`}>
+              <span className="font-semibold">{preset.label}</span>
+              <span className="text-[10px] opacity-55 tabular-nums">{w}×{h}</span>
+              <span className="col-span-2 text-[11px] opacity-55">{preset.hint}</span>
+            </Menu.Item>
+          )
+        })}
+      </Menu.Group>
+    </>
+  )
+}
+
+const FRAMES: { value: Aspect; label: string }[] = [
+  { value: 'original', label: 'Original' },
+  { value: '16:9', label: '16:9 Landscape' },
+  { value: '9:16', label: '9:16 Portrait' },
+  { value: '1:1', label: '1:1 Square' },
+  { value: '4:5', label: '4:5 Vertical' },
+]
+const FITS: { value: Fit; label: string; hint: string }[] = [
+  { value: 'contain', label: 'Fit', hint: 'Show all, with bars' },
+  { value: 'cover', label: 'Fill', hint: 'Crop to the frame' },
+]
+
+// A small outline in the frame's proportions (at most 16×12); dashed for Original, which follows the first clip.
+const FrameShape = ({ w, h, dashed }: { w: number; h: number; dashed?: boolean }) => {
+  const k = Math.min(16 / w, 12 / h)
+  return (
+    <span className="grid size-4 shrink-0 place-items-center">
+      <span className={`rounded-xs border-[1.5px] border-current ${dashed ? 'border-dashed' : ''}`} style={{ width: Math.max(5, Math.round(w * k)), height: Math.max(5, Math.round(h * k)) }} />
+    </span>
+  )
+}
+
+// The output frame: a label with its shape, aspect, fit and size, opening the aspect ratios (with their shapes and sizes)
+// and what happens when a clip doesn't match. The menu stays open, so the preview updates behind it.
+export function FrameMenu(props: { project: Project; media: Record<string, Media>; onChange: (patch: { aspect?: Aspect; fit?: Fit }) => void }) {
+  const { project, media } = props
+  const [W, H] = outputSize(project, media)
+  const item = `${menuItem} grid grid-cols-[12px_16px_1fr_auto] justify-normal gap-2 py-1.5`
+  return (
+    <Menu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
+      <Menu.Trigger className="flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-ink/65 tabular-nums transition-colors hover:bg-ink/5 hover:text-ink data-popup-open:bg-ink/5 data-popup-open:text-ink">
+        <FrameShape w={W} h={H} dashed={project.aspect === 'original'} />
+        {project.aspect === 'original' ? 'Original' : project.aspect} · {project.fit === 'contain' ? 'Fit' : 'Fill'} · {W}×{H}
+        <ChevronDown size={12} className="opacity-60" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner className="z-20 outline-none" sideOffset={6} align="end">
+          <Menu.Popup className={`${popup} w-64`}>
+            <Menu.RadioGroup
+              value={project.aspect}
+              onValueChange={aspect => {
+                play('select', { emphasis: 'subtle' })
+                props.onChange({ aspect: aspect as Aspect })
+              }}
+              aria-label="Frame"
+            >
+              <div className={groupLabel}>Frame</div>
+              {FRAMES.map(f => {
+                const [w, h] = outputSize({ ...project, aspect: f.value }, media)
+                return (
+                  <Menu.RadioItem key={f.value} value={f.value} className={item}>
+                    <Menu.RadioItemIndicator><Check size={12} /></Menu.RadioItemIndicator>
+                    <span className="col-start-2 text-ink/55"><FrameShape w={w} h={h} dashed={f.value === 'original'} /></span>
+                    <span>{f.label}</span>
+                    <span className="text-[10px] opacity-55 tabular-nums">{w}×{h}</span>
+                  </Menu.RadioItem>
+                )
+              })}
+            </Menu.RadioGroup>
+            <Menu.Separator className="mx-1 my-1 h-px bg-ink/6" />
+            <Menu.RadioGroup
+              value={project.fit}
+              onValueChange={fit => {
+                play('select', { emphasis: 'subtle' })
+                props.onChange({ fit: fit as Fit })
+              }}
+              aria-label="When a clip doesn't match the frame"
+            >
+              <div className={groupLabel}>When a clip doesn't match</div>
+              {FITS.map(f => (
+                <Menu.RadioItem key={f.value} value={f.value} className={item}>
+                  <Menu.RadioItemIndicator><Check size={12} /></Menu.RadioItemIndicator>
+                  <span className="col-span-2 col-start-2">{f.label}</span>
+                  <span className="text-[10px] opacity-55">{f.hint}</span>
+                </Menu.RadioItem>
+              ))}
+            </Menu.RadioGroup>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
   )
 }
 
@@ -198,7 +266,7 @@ export function Tip({ label: text, children }: { label: string; children: ReactE
   )
 }
 
-export const Divider = ({ tall }: { tall?: boolean }) => <div className={`mx-1 w-px shrink-0 bg-ink/10 ${tall ? 'h-7' : 'h-4'}`} />
+export const Divider = () => <div className="mx-1 h-4 w-px shrink-0 bg-ink/10" />
 
 // Global toast queue: toast.add({ title, description, type }) from anywhere, rendered by <Toasts />.
 export const toast = Toast.createToastManager()
