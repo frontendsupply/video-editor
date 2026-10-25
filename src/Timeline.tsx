@@ -138,6 +138,8 @@ export function Timeline(props: Props) {
   const near = [(tile - 1) * TILE, (tile + 2) * TILE + viewW]
   const nearClip = (pl: Placed): [number, number] => [near[0] - pl.start * pps, near[1] - pl.start * pps]
   const duration = projectDuration(project)
+  const empty = !duration // nothing on the timeline yet: no playhead, ruler clicks or selecting
+  useEffect(() => void (empty && setMarking(false)), [empty])
   // Past the last clip there's room for the + tile and dragging; fully zoomed out that's the 10% left, so nothing scrolls.
   const width = Math.max(viewW - MARGIN, duration * pps + Math.min(ROOM, (1 - FIT) * (viewW - MARGIN)))
   const step = TICK_STEPS.find(s => s * pps >= 90) ?? 1200
@@ -147,7 +149,7 @@ export function Timeline(props: Props) {
   // Ruler: click or drag moves the playhead (a selected range stays). Empty lane: a click moves the playhead and clears
   // the selection; a drag selects a time range across all tracks, the playhead following the moving edge.
   function scrub(e: ReactPointerEvent<HTMLDivElement>) {
-    if (e.button || e.ctrlKey) return // right-click: the context menu
+    if (e.button || e.ctrlKey || empty) return // right-click: the context menu
     const ruler = !!(e.target as Element).closest('[data-ruler]')
     const snap = snapper(snapPoints(project, () => false))
     const at = (t: number, ev: { altKey: boolean }) => Math.min(duration, Math.max(0, t + snap([t], ev)))
@@ -215,8 +217,8 @@ export function Timeline(props: Props) {
   // The time under the mouse, shown under the ruler. Written to the DOM: no re-render per mouse move.
   const hover = (e: ReactPointerEvent | null) => {
     const el = hoverRef.current!
-    el.style.display = e ? 'block' : 'none'
-    if (!e) return
+    el.style.display = e && !empty ? 'block' : 'none'
+    if (!e || empty) return
     const t = Math.min(duration, Math.max(0, timeAt(e.clientX)))
     el.style.left = `${t * pps}px`
     el.textContent = timecode(t, digits)
@@ -455,7 +457,8 @@ export function Timeline(props: Props) {
   const main = layoutVideo(project.video)
   const slid = slide ? main.findIndex(x => x.clip.id === slide.id) : -1
   const rows: Row[] = [
-    {
+    // nothing to select until there's something on the timeline
+    ...(empty ? [] : [{
       key: 'sel',
       size: 'mt-1 h-5.5',
       header: <div className={head}><ArrowLeftRight size={13} /> Select</div>,
@@ -516,7 +519,7 @@ export function Timeline(props: Props) {
           )}
         </div>
       ),
-    },
+    }]),
     {
       key: 'v1',
       size: 'mt-1.5 h-14',
@@ -617,13 +620,13 @@ export function Timeline(props: Props) {
           </div>
 
           <ContextMenu.Root>
-          <ContextMenu.Trigger ref={contentRef} className="relative ml-4 shrink-0 pb-8 cursor-text" style={{ width }} onPointerDown={scrub} onContextMenu={openMenu}>
+          <ContextMenu.Trigger ref={contentRef} className={`relative ml-4 shrink-0 pb-8 ${empty ? '' : 'cursor-text'}`} style={{ width }} onPointerDown={scrub} onContextMenu={openMenu}>
             {/* ruler: timecode labels + minor ticks every fifth of a step. Click or drag it to move the playhead. */}
             <div
               data-ruler
               onPointerMove={hover}
               onPointerLeave={() => hover(null)}
-              className="relative h-6 cursor-pointer overflow-hidden border-b border-ink/6"
+              className={`relative h-6 overflow-hidden border-b border-ink/6 ${empty ? '' : 'cursor-pointer'}`}
               style={{
                 backgroundImage: `repeating-linear-gradient(to right, rgb(29 29 32 / 0.14) 0 1px, transparent 1px ${(step * pps) / 5}px)`,
                 backgroundSize: '100% 5px',
@@ -668,7 +671,7 @@ export function Timeline(props: Props) {
 
             {/* playhead: red line, time pill in the ruler, split button at its foot (kept in view when the tracks are taller
                 than the timeline); moved by the player through the DOM */}
-            <div ref={props.playheadRef} className="pointer-events-none absolute top-0 bottom-0 left-0 z-20 flex w-0.5 -ml-px flex-col justify-end bg-playhead">
+            <div ref={props.playheadRef} className={`pointer-events-none absolute top-0 bottom-0 left-0 z-20 flex w-0.5 -ml-px flex-col justify-end bg-playhead ${empty ? 'hidden' : ''}`}>
               <span ref={props.playheadLabelRef} style={{ transform: 'translateX(var(--nudge, 0px))' }} className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-white px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-playhead tabular-nums ring-1 ring-playhead/25">
                 0:00:00.0
               </span>
