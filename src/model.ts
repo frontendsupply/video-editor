@@ -28,6 +28,7 @@ export const binLength = (m: Media) => (m.range ? m.range[1] - m.range[0] : m.du
 export const sameFile = (a: { name: string; size: number }, b: { name: string; size: number }) => a.name === b.name && a.size === b.size
 
 export const PEAKS_PER_SEC = 50
+export const MIX_RATE = 48000 // Hz: the exported sound
 
 export type Clip = {
   id: string
@@ -161,7 +162,7 @@ export const sourceTime = (pl: Placed, t: number) => pl.clip.in + (t - pl.start)
 
 const PRESETS = { '16:9': [1920, 1080], '9:16': [1080, 1920], '1:1': [1080, 1080], '4:5': [1080, 1350] } as const
 
-export function outputSize(p: Project, media: Record<string, Media>): [number, number] {
+export function outputSize(p: Project, media: Record<string, { width: number; height: number }>): [number, number] {
   if (p.aspect !== 'original') return [...PRESETS[p.aspect]]
   const m = media[p.video[0]?.mediaId]
   return m ? [m.width & ~1, m.height & ~1] : [1920, 1080] // encoders want even sizes
@@ -176,7 +177,7 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   { label: '480p', hint: 'Smallest file', short: 480, quality: 'low' },
 ]
 
-export function exportSize(p: Project, media: Record<string, Media>, short?: number): [number, number] {
+export function exportSize(p: Project, media: Record<string, { width: number; height: number }>, short?: number): [number, number] {
   const [W, H] = outputSize(p, media)
   const s = short ? Math.min(1, short / Math.min(W, H)) : 1
   return [Math.round(W * s) & ~1, Math.round(H * s) & ~1]

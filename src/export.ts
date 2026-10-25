@@ -1,18 +1,10 @@
-import {
-  ALL_FORMATS, AudioBufferSink, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input,
-  Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec,
-  type InputAudioTrack, type StreamTargetChunk, type WrappedCanvas,
-} from 'mediabunny'
+import { ALL_FORMATS, AudioBufferSink, BlobSource, Input, type InputAudioTrack } from 'mediabunny'
 import { SimpleFilter, SoundTouch, WebAudioBufferSource } from 'soundtouchjs'
-import {
-  drawFrame, exportSize, fitRect, laneOf, layoutFree, layoutVideo, projectDuration, sourceTime,
-  type ExportPreset, type Media, type Project,
-} from './model'
+import { MIX_RATE, layoutFree, layoutVideo, projectDuration, sourceTime, type ExportPreset, type Media, type Project } from './model'
+import type { ExportMedia, FromWorker, ToWorker } from './export.worker'
 
-const SAMPLE_RATE = 48000
-const QUALITY = { high: QUALITY_HIGH, medium: QUALITY_MEDIUM, low: QUALITY_LOW }
-
-// Renders the timeline to MP4 using the GPU's hardware encoder (WebCodecs).
+// Renders the timeline to MP4 using the GPU's hardware encoder (WebCodecs). The video, muxing and file writing run in
+// a worker (export.worker.ts), so the editor stays responsive; the audio mix stays here, since it needs Web Audio.
 // With a file handle the output streams straight to disk; otherwise it's built in memory and returned as a Blob.
 export async function exportProject(
   p: Project,
@@ -23,112 +15,41 @@ export async function exportProject(
   preset: ExportPreset,
   frame = p, // the project whose frame size to use: the whole edit, when exporting part of it
 ): Promise<Blob | null> {
-  const [W, H] = exportSize(frame, media, preset.short)
-  const quality = QUALITY[preset.quality]
-  const duration = projectDuration(p)
-  const format = new Mp4OutputFormat()
-  // Disk writes only commit on close(); the muxer closes on cancel too, so only commit once we got to finalize.
-  let commit = false
-  const fileStream = file && (await file.createWritable())
-  const writable = fileStream && new WritableStream<StreamTargetChunk>({
-    write: chunk => fileStream.write(chunk),
-    close: () => (commit ? fileStream.close() : fileStream.abort()),
-    abort: () => fileStream.abort(),
-  })
-  const target = writable ? new StreamTarget(writable, { chunked: true }) : new BufferTarget()
-  const output = new Output({ format, target })
-
-  const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width: W, height: H, frameRate: p.fps, quality })
-  if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video`)
-  const canvas = new OffscreenCanvas(W, H)
-  const video = new CanvasSource(canvas, { codec: videoCodec, quality })
-  output.addVideoTrack(video, { frameRate: p.fps })
-
-  const hasAudio = [...p.video, ...p.overlay, ...p.audio].some(c => media[c.mediaId].hasAudio && c.volume > 0 && !c.muted)
-  const audioCodec = hasAudio
-    ? await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), { numberOfChannels: 2, sampleRate: SAMPLE_RATE })
-    : null
-  const audio = audioCodec && new AudioBufferSource({ codec: audioCodec, quality })
-  if (audio) output.addAudioTrack(audio)
-
-  await output.start()
-  try {
-    // Audio mixes while video encodes, a chunk at a time; encoded audio is tiny next to video, so the muxer holding it
-    // until the video catches up is cheap.
-    const encoded = { t: 0 } // how far the video has got, so the audio mix keeps pace
-    await Promise.all([
-      renderVideo(p, media, canvas.getContext('2d')!, video, duration, onProgress, signal, encoded).then(() => video.close()),
-      audio && mixAudio(p, media, duration, audio, signal, encoded).then(() => audio.close()),
-    ])
-    commit = true
-    await output.finalize()
-  } catch (e) {
-    await output.cancel() // closes the stream uncommitted: no half-written file on disk
-    throw e
-  }
-  return target instanceof BufferTarget ? new Blob([target.buffer!], { type: 'video/mp4' }) : null
-}
-
-// One output frame at a time: black, then every active layer (Video 1, then overlays by lane, higher on top).
-// Each clip gets its own decoder stream, opened at its first frame and closed after its last, so only the
-// clips on screen at once are being decoded.
-async function renderVideo(
-  p: Project,
-  media: Record<string, Media>,
-  ctx: OffscreenCanvasRenderingContext2D,
-  video: CanvasSource,
-  duration: number,
-  onProgress: (fraction: number) => void,
-  signal: AbortSignal,
-  encoded: { t: number },
-) {
-  const { width: W, height: H } = ctx.canvas
-  const fps = p.fps
-  const total = Math.ceil(duration * fps - 1e-6)
-  const frameAt = (t: number) => Math.ceil(t * fps - 1e-6) // frame f shows timeline time f / fps
-  const overlays = layoutFree(p.overlay).sort((a, b) => laneOf(a.clip) - laneOf(b.clip))
-  const layers = [...layoutVideo(p.video), ...overlays]
-    .map(pl => ({ pl, m: media[pl.clip.mediaId], first: frameAt(pl.start), end: Math.min(total, frameAt(pl.end)) }))
-    .filter(l => l.end > l.first)
-  type Stream = { input: Input; frames: AsyncGenerator<WrappedCanvas | null, void, unknown> }
-  const open = new Map<(typeof layers)[number], Stream>()
-  const close = async (l: (typeof layers)[number]) => {
-    const s = open.get(l)!
-    open.delete(l)
-    await s.frames.return(undefined)
-    s.input.dispose()
-  }
-
-  try {
-    for (let f = 0; f < total; f++) {
-      signal.throwIfAborted()
-      const t = f / fps
-      drawFrame(ctx, null, 0, 0, p.fit) // black base (also the tail when audio outlasts the video)
-      for (const l of layers) {
-        if (f < l.first || f >= l.end) continue
-        let s = open.get(l)
-        if (!s) {
-          const input = new Input({ source: new BlobSource(l.m.file), formats: ALL_FORMATS })
-          const track = (await input.getPrimaryVideoTrack())!
-          // Decode straight to the final on-screen size (GPU resize + rotation) so big sources stay cheap.
-          const r = fitRect(l.m.width, l.m.height, W, H, p.fit)
-          const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', poolSize: 2 })
-          // Constant output frame rate: one source lookup per output frame (handles speed up and slow-mo alike).
-          const times = Array.from({ length: l.end - l.first }, (_, i) => sourceTime(l.pl, (l.first + i) / fps))
-          s = { input, frames: sink.canvasesAtTimestamps(times) }
-          open.set(l, s)
-        }
-        const { value: frame } = await s.frames.next()
-        drawFrame(ctx, frame?.canvas ?? null, l.m.width, l.m.height, p.fit, false)
-        if (f === l.end - 1) await close(l)
-      }
-      await video.add(t, 1 / fps) // resolves when the encoder is ready for more (backpressure)
-      encoded.t = t
-      onProgress((f + 1) / total)
+  const audio = [...p.video, ...p.overlay, ...p.audio].some(c => media[c.mediaId].hasAudio && c.volume > 0 && !c.muted)
+  const worker = new Worker(new URL('./export.worker.ts', import.meta.url), { type: 'module' })
+  const send = (m: ToWorker, transfer: Transferable[] = []) => worker.postMessage(m, { transfer })
+  const encoded = { t: 0 } // how far the video has got, so the audio mix keeps pace
+  let next = () => {}
+  const done = new Promise<Blob | null>((ok, fail) => {
+    worker.onmessage = ({ data }: MessageEvent<FromWorker>) => {
+      if (data.type === 'progress') (encoded.t = data.t), onProgress(data.fraction)
+      else if (data.type === 'audio-ok') next()
+      else if (data.type === 'done') ok(data.buffer && new Blob([data.buffer], { type: 'video/mp4' }))
+      else fail(signal.aborted ? signal.reason : new Error(data.message))
     }
+    worker.onerror = e => fail(new Error(e.message))
+  })
+  const cancel = () => send({ type: 'cancel' })
+  signal.addEventListener('abort', cancel)
+  // The worker needs only the files and their sizes, not thumbnails or waveforms.
+  const files = Object.fromEntries(Object.entries(media).map(([id, m]) => [id, { file: m.file, width: m.width, height: m.height } satisfies ExportMedia]))
+  send({ type: 'start', job: { p, media: files, file, preset, frame, audio } })
+  try {
+    // Audio mixes while the video encodes, a chunk at a time; each chunk waits for the encoder to take the last one.
+    const chunk = (buf: AudioBuffer, timestamp: number) =>
+      new Promise<void>(ok => {
+        next = ok
+        const data = new Float32Array(buf.length * 2) // planar stereo
+        data.set(buf.getChannelData(0))
+        data.set(buf.getChannelData(1), buf.length)
+        send({ type: 'audio', data, timestamp }, [data.buffer])
+      })
+    const mixed = audio && mixAudio(p, media, projectDuration(p), chunk, signal, encoded).then(() => send({ type: 'audio-end' }))
+    const [blob] = await Promise.all([done, mixed])
+    return blob
   } finally {
-    encoded.t = Infinity // done (or failed): the audio needn't wait any more
-    for (const l of [...open.keys()]) await close(l) // cancelled mid-export
+    signal.removeEventListener('abort', cancel)
+    worker.terminate() // after an error or cancel too: an uncommitted file stream is discarded with it
   }
 }
 
@@ -144,7 +65,7 @@ async function mixAudio(
   p: Project,
   media: Record<string, Media>,
   duration: number,
-  out: AudioBufferSource,
+  out: (buf: AudioBuffer, timestamp: number) => Promise<void>,
   signal: AbortSignal,
   encoded: { t: number },
 ) {
@@ -170,7 +91,7 @@ async function mixAudio(
       }
       signal.throwIfAborted()
       const t1 = Math.min(duration, t0 + CHUNK)
-      const ctx = new OfflineAudioContext(2, Math.max(1, Math.round((t1 - t0) * SAMPLE_RATE)), SAMPLE_RATE)
+      const ctx = new OfflineAudioContext(2, Math.max(1, Math.round((t1 - t0) * MIX_RATE)), MIX_RATE)
       for (const pl of parts) {
         const a = Math.max(pl.start, t0)
         const b = Math.min(pl.end, t1)
@@ -186,7 +107,7 @@ async function mixAudio(
         src.connect(new GainNode(ctx, { gain: volume })).connect(ctx.destination)
         src.start(a - t0, (from - s0) / speed, b - a)
       }
-      await out.add(await ctx.startRendering()) // waits while the encoder is busy
+      await out(await ctx.startRendering(), t0) // waits while the encoder is busy
     }
   } finally {
     for (const { input } of inputs.values()) input.dispose()
