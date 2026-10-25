@@ -1,14 +1,27 @@
-import { ALL_FORMATS, BlobSource, CanvasSink, Input, type InputVideoTrack } from 'mediabunny'
+import { ALL_FORMATS, BlobSource, CanvasSink, Input, UnsupportedInputFormatError, type InputVideoTrack } from 'mediabunny'
 import { PEAKS_PER_SEC, type Media } from './model'
 import type { PeaksChunk, PeaksJob } from './peaks.worker'
+
+// A file this browser can't fully decode: convert.ts makes a playable copy, re-encoding the video, or (when only the
+// sound is the problem) just the sound.
+export class NeedsConversion extends Error {
+  video: 'encode' | 'copy'
+  constructor(video: 'encode' | 'copy') {
+    super("this browser can't decode it")
+    this.video = video
+  }
+}
 
 // Probe a local file. Only the bytes needed are read (headers + one frame), never the whole file.
 export async function importFile(file: File): Promise<Media> {
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
   try {
-    const [video, audio] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()])
+    const [video, audio] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()]).catch(e => {
+      throw e instanceof UnsupportedInputFormatError ? new NeedsConversion('encode') : e // a container it can't read, like AVI
+    })
     if (!video && !audio) throw new Error('no audio or video track')
-    if (video && !(await video.canDecode())) throw new Error(`this browser can't decode ${await video.getCodec()} video`)
+    if (video && !(await video.canDecode())) throw new NeedsConversion('encode')
+    if (audio && !(await audio.canDecode())) throw new NeedsConversion('copy')
     const duration = await input.computeDuration()
     const media: Media = {
       id: crypto.randomUUID(),
@@ -19,7 +32,7 @@ export async function importFile(file: File): Promise<Media> {
       width: video ? await video.getDisplayWidth() : 0,
       height: video ? await video.getDisplayHeight() : 0,
       hasVideo: !!video,
-      hasAudio: !!audio && (await audio.canDecode()),
+      hasAudio: !!audio,
     }
     if (video) media.thumb = await frameAt(video, Math.min(1, duration / 2))
     return media

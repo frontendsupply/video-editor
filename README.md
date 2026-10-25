@@ -32,6 +32,7 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 
 - `src/model.ts`: project data, timing math, edits (split/ripple delete/crop/trim/move/gaps), timecode, `drawFrame`. Pure, no DOM.
 - `src/history.ts`: undo/redo state hook (one gesture is one step).
+- `src/convert.ts`: makes a playable copy of a file the browser can't decode, with a software decoder, loaded only when needed.
 - `src/store.ts`: saves the open project in IndexedDB and reconnects its files after a reload.
 - `src/media.ts`: probe an imported file (tracks, size, duration, thumbnail) and read its waveform.
 - `src/peaks.worker.ts`: reads one slice of a file's audio into waveform peaks, off the main thread.
@@ -52,6 +53,8 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 **Tracks**: Video 1 is the magnetic main track: clips follow each other, plus any gap you leave. Drag a Video 1 clip sideways to slide it and everything after it (the gap opens in front of it; an Offset readout shows its new start); drag it left until its middle passes the clip in front and it's carried alone, dropping in where you let go (at that time if there's room, pushing later clips only if they'd overlap). Gaps play and export as black. Every video clip shows its own sound as a waveform strip under its thumbnails, so the sound moves, trims, splits and deletes with it. Right-click a clip → **Unlink audio** to move that sound into its own clip on the first free audio lane (the video clip goes silent); from then on they edit separately. The **− +** row under each group removes or adds a track: Video 2, 3, … are overlay tracks drawn on top of the ones below (in Fit mode their bars show the layer underneath), and Audio 1, 2, … hold music, voiceover and unlinked sound. Drag media from the bin onto any lane, drag clips up or down to change lanes (between Video 1 and the overlay tracks too: leaving Video 1 closes up the clip's length, entering it slots the clip in). **−** removes the last added track and asks first (alert dialog) if it still has clips; Video 1 and Audio 1 always stay. Click a track's name to rename it (Enter keeps it, Esc cancels, an empty name brings the default back). Waveforms are read once per file right after import, in Web Workers (long files as parallel slices, one per spare core: a 4-hour video takes ~5 s); until done the strip shimmers, the bars fill in and a thin bar fills along the bottom of the file's thumbnail in the bin.
 
 **Snapping**: while you move or trim a clip, select a range or drop from the bin, edges within 8 px lock onto other clips' starts and ends (on every track), the playhead and 0:00, and a guide line shows the exact time. With nothing to snap to, edits land on the ruler's small ticks, so times come out round at any zoom (tenths zoomed in, whole minutes far out), and timeline times show only the digits those ticks need. Hold **⌥ Alt** while dragging to place freely, down to single frames when zoomed in.
+
+**Files the browser can't decode** (an AVI, an old codec in an MKV, ProRes, or HEVC where there's no decoder) are converted once, on this device, into an MP4 the browser plays (H.264 video, AAC sound), then come in like any other file, under their own name. The software decoder (WebAssembly, about 30 MB, part of the app) loads only when such a file comes along. When only the sound is the problem (say, AC-3 in an MKV), the video is copied as it is, which takes moments; re-encoding video runs around ten times faster than real time for 720p. A toast shows the progress, and closing it cancels. The copy is kept in the browser's private storage, so a saved project finds it after a reload; copies no project uses are cleared on the next load.
 
 **Lossless export**: when the video only needs copying, it's copied as it is, packet for packet: no decoding, no re-encoding, no quality lost, and it takes about as long as reading the files. That's when the edit is Video 1 only (no overlays, no speed changes, no gaps, and the video lasts as long as the sound), its files share one encoding, at the export's size and frame rate (Original or 1080p), and every piece starts on a key frame of its file (most cameras put one every second or two; a file's start always is one). Pieces can end anywhere, or only at the file's end for files with B-frames. So joining camera files, putting music under untouched video, or trimming the ends of clips all export losslessly; the sound is still mixed and encoded as usual. Anything else is rendered, and the finished message says which happened.
 
@@ -78,6 +81,7 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 Done lately:
 
+- **Software decoding fallback**: files the browser can't decode are converted once on this device into a playable MP4.
 - **Lossless fast path**: plain cuts of files that share one encoding are copied packet for packet, no re-encoding.
 - **Export in a Worker**: video frames, encoding, muxing and file writes run off the page, so the editor stays responsive.
 - **Long exports**: the audio mix renders in 30-second chunks that keep pace with the video, decoding only each clip's slice, so hour-long exports use as little memory as short ones.
@@ -94,4 +98,3 @@ Done lately:
 Next:
 
 1. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
-2. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).

@@ -111,3 +111,16 @@ export async function run() {
   const { blob, ms } = await exportBlob()
   return { exportMs: ms, bytes: blob.size, ...(await inspect(blob, [1, 4, 7, 7.9])) }
 }
+
+// Re-wraps a file with the app's software decoder, to make files the browser can't decode:
+//   await transcode(file, 'red.avi', ['-c:v', 'mpeg4', '-c:a', 'pcm_s16le'])
+export async function transcode(file, name, args) {
+  const { FFmpeg } = await import('@ffmpeg/ffmpeg')
+  const ffmpeg = new FFmpeg()
+  await ffmpeg.load({ coreURL: (await import('@ffmpeg/core?url')).default, wasmURL: (await import('@ffmpeg/core/wasm?url')).default })
+  await ffmpeg.writeFile(file.name, new Uint8Array(await file.arrayBuffer()))
+  await ffmpeg.exec(['-i', file.name, ...args, name])
+  const data = await ffmpeg.readFile(name)
+  ffmpeg.terminate()
+  return new File([data], name)
+}

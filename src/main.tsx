@@ -16,7 +16,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { exportProject } from './export'
 import { useHistory } from './history'
 import { ClipPreview, type Marks } from './ClipPreview'
-import { computePeaks, importFile, thumbnail } from './media'
+import { computePeaks, importFile, NeedsConversion, thumbnail } from './media'
 import {
   audio1End, binLength, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip, trackName,
   projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, unparkMedia, updateClip,
@@ -37,7 +37,8 @@ const monitorTab = '-mb-px flex items-center border-r border-line px-3 font-medi
 // What the file picker offers (any file can still be chosen).
 const PICK = [{ description: 'Video and audio', accept: { 'video/*': ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'], 'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.flac'] } }]
 
-type Picked = { file: File; handle?: FileSystemFileHandle }
+// A file to import, with its handle when the browser gives one; a converted copy also keeps the original's name.
+type Picked = { file: File; handle?: FileSystemFileHandle; name?: string; converted?: string }
 // The last project, waiting for its files: the ones found so far, and whether the browser was already asked for the rest.
 type Restore = { saved: Saved; files: Map<string, File>; asked?: boolean }
 
@@ -359,9 +360,16 @@ function App() {
 
   async function addFiles(items: Picked[]) {
     if (restoreRef.current) return locate(restoreRef.current, items)
-    const results = await Promise.allSettled(items.map(async ({ file, handle }) => ({ ...(await importFile(file)), handle })))
+    const results = await Promise.allSettled(
+      items.map(async ({ file, handle, name, converted }) => ({ ...(await importFile(file)), handle, ...(converted && { name, converted }) })),
+    )
     const ok = results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : []))
-    const failed = results.flatMap((r, i) => (r.status === 'rejected' ? [`${items[i].file.name}: ${r.reason?.message ?? r.reason}`] : []))
+    // Files the browser can't decode get a playable copy made in the background, then come in like the rest.
+    const convertible = (r: PromiseSettledResult<unknown>, i: number) => r.status === 'rejected' && r.reason instanceof NeedsConversion && !items[i].converted
+    results.forEach((r, i) => convertible(r, i) && convertFile(items[i].file, ((r as PromiseRejectedResult).reason as NeedsConversion).video))
+    const failed = results.flatMap((r, i) =>
+      r.status === 'rejected' && !convertible(r, i) ? [`${items[i].file.name}: ${r.reason?.message ?? r.reason}`] : [],
+    )
     if (failed.length) {
       play('error')
       toast.add({ title: "Couldn't import", description: failed.join('\n'), type: 'error', timeout: 0 })
@@ -379,6 +387,35 @@ function App() {
       })
       return { ...p, video: [...p.video, ...ok.filter(m => m.hasVideo).map(m => newClip(m))], audio: [...p.audio, ...audio] }
     })
+  }
+
+  // Converting a file the browser can't decode: a toast shows how far it's got (closing it cancels), then the copy is
+  // imported under the file's own name.
+  async function convertFile(file: File, video: 'encode' | 'copy') {
+    const ac = new AbortController()
+    const id = toast.add({
+      title: `Converting ${file.name}`,
+      description: video === 'copy'
+        ? "Its sound can't be played here, so it's being converted; the video is copied as it is."
+        : "This browser can't decode it, so a playable copy is being made on this device. Long videos take a while.",
+      timeout: 0,
+      onClose: () => ac.abort(),
+    })
+    let shown = -1
+    try {
+      const { convert } = await import('./convert') // the software decoder loads only now
+      const c = await convert(file, video, share => {
+        const pct = Math.floor(share * 100)
+        if (pct !== shown) toast.update(id, { title: `Converting ${file.name} · ${(shown = pct)}%` })
+      }, ac.signal)
+      toast.close(id)
+      addFiles([{ file: c.file, handle: c.handle, name: file.name, converted: c.folder }])
+    } catch (e) {
+      if (ac.signal.aborted) return
+      toast.close(id)
+      play('error')
+      toast.add({ title: `Couldn't convert ${file.name}`, description: (e as Error).message, type: 'error', timeout: 0 })
+    }
   }
 
   // Whole-window file drop with a "drop to import" overlay.
