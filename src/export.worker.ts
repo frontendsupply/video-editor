@@ -2,13 +2,13 @@
 // the GPU's hardware encoder), muxing, and writing the file. Web Audio, which the mix needs, doesn't exist in workers,
 // so the page renders the audio in chunks and posts them in (see export.ts).
 import {
-  ALL_FORMATS, AudioSample, AudioSampleSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input,
-  Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec,
-  type StreamTargetChunk, type WrappedCanvas,
+  ALL_FORMATS, AudioSample, AudioSampleSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, EncodedPacketSink, EncodedVideoPacketSource,
+  Input, Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, getFirstEncodableAudioCodec,
+  getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
 } from 'mediabunny'
 import {
-  MIX_RATE, drawFrame, exportSize, fitRect, laneOf, layoutFree, layoutVideo, projectDuration, sourceTime,
-  type ExportPreset, type Media, type Project,
+  MIX_RATE, drawFrame, exportSize, fitRect, laneOf, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
+  type ExportPreset, type Media, type Placed, type Project,
 } from './model'
 
 export type ExportMedia = Pick<Media, 'file' | 'width' | 'height'>
@@ -28,7 +28,7 @@ export type ToWorker =
 export type FromWorker =
   | { type: 'progress'; fraction: number; t: number } // t: video encoded up to here, so the mix keeps pace
   | { type: 'audio-ok' } // ready for the next chunk
-  | { type: 'done'; buffer: ArrayBuffer | null }
+  | { type: 'done'; buffer: ArrayBuffer | null; lossless: boolean } // lossless: the video was copied, not re-encoded
   | { type: 'error'; message: string }
 
 const QUALITY = { high: QUALITY_HIGH, medium: QUALITY_MEDIUM, low: QUALITY_LOW }
@@ -71,11 +71,17 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
     const target = writable ? new StreamTarget(writable, { chunked: true }) : new BufferTarget()
     const output = new Output({ format, target })
 
-    const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width: W, height: H, frameRate: p.fps, quality })
-    if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video`)
-    const canvas = new OffscreenCanvas(W, H)
-    const video = new CanvasSource(canvas, { codec: videoCodec, quality })
-    output.addVideoTrack(video, { frameRate: p.fps })
+    // Copy the video as it is when the edit and the files allow it (and the preset asks for full quality anyway).
+    const plan = preset.quality === 'high' ? await copyPlan(p, media, W, H) : null
+    let video: CanvasSource | EncodedVideoPacketSource
+    let canvas: OffscreenCanvas | null = null
+    if (plan) output.addVideoTrack((video = new EncodedVideoPacketSource(plan.codec))) // the files' own timing
+    else {
+      const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width: W, height: H, frameRate: p.fps, quality })
+      if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video`)
+      canvas = new OffscreenCanvas(W, H)
+      output.addVideoTrack((video = new CanvasSource(canvas, { codec: videoCodec, quality })), { frameRate: p.fps })
+    }
     // No audio encoder in this browser: the mix is still taken, and dropped.
     const audioCodec = withAudio && (await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), { numberOfChannels: 2, sampleRate: MIX_RATE }))
     if (audioCodec) output.addAudioTrack((audio = new AudioSampleSource({ codec: audioCodec, quality })))
@@ -83,18 +89,100 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
     await output.start()
     started()
     try {
-      await renderVideo(p, media, canvas.getContext('2d')!, video).then(() => video.close())
+      if (plan) await copyVideo(plan, video as EncodedVideoPacketSource, projectDuration(p))
+      else await renderVideo(p, media, canvas!.getContext('2d')!, video as CanvasSource)
+      video.close()
       if (withAudio) await mixDone
       commit = true
       await output.finalize()
     } catch (e) {
       await output.cancel() // closes the stream uncommitted: no half-written file on disk
       throw e
+    } finally {
+      plan?.dispose()
     }
     const buffer = target instanceof BufferTarget ? target.buffer! : null
-    post({ type: 'done', buffer }, buffer ? [buffer] : [])
+    post({ type: 'done', buffer, lossless: !!plan }, buffer ? [buffer] : [])
   } catch (e) {
     post({ type: 'error', message: (e as Error).message })
+  }
+}
+
+// Lossless copy. When the edit only cuts files that share one video encoding (see plainCuts), at the output's size and
+// frame rate, and every piece starts on a key frame, the encoded packets are copied as they are: no decoding, no
+// re-encoding, no quality lost, at disk speed. A track holds one encoding, so it's the whole video or none of it.
+// Pieces may end anywhere when the file has no B-frames (frames come in the order they show); with B-frames, only at
+// the file's end, since a cut could drop a frame that earlier ones are built from.
+type Piece = { pl: Placed; sink: EncodedPacketSink; key: EncodedPacket }
+type Plan = { codec: VideoCodec; config: VideoDecoderConfig; pieces: Piece[]; dispose: () => void }
+
+async function copyPlan(p: Project, media: Record<string, ExportMedia>, W: number, H: number): Promise<Plan | null> {
+  if (!plainCuts(p)) return null
+  const inputs = new Map<File, Input>()
+  const dispose = () => inputs.forEach(i => i.dispose())
+  const near = 0.5 / p.fps // half a frame
+  try {
+    let first: { codec: VideoCodec; config: VideoDecoderConfig } | undefined
+    const pieces: Piece[] = []
+    for (const pl of layoutVideo(p.video)) {
+      const file = media[pl.clip.mediaId].file
+      let input = inputs.get(file)
+      if (!input) inputs.set(file, (input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })))
+      const track = await input.getPrimaryVideoTrack()
+      if (!track || (await track.getRotation()) || (await track.getDisplayWidth()) !== W || (await track.getDisplayHeight()) !== H) return dispose(), null
+      const config = await track.getDecoderConfig()
+      if (!config || (first && !sameConfig(first.config, config))) return dispose(), null
+      first ??= { codec: (await track.getCodec())!, config }
+      if (Math.abs((await track.computePacketStats(120)).averagePacketRate - p.fps) > p.fps / 100) return dispose(), null
+      const sink = new EncodedPacketSink(track)
+      const key = await sink.getKeyPacket(pl.clip.in + near, { verifyKeyPackets: true })
+      if (!key || Math.abs(key.timestamp - pl.clip.in) > near) return dispose(), null
+      if (pl.clip.out < (await track.computeDuration()) - near) {
+        let last = -Infinity
+        for await (const pkt of sink.packets(key, undefined, { metadataOnly: true })) {
+          if (pkt.timestamp >= pl.clip.out - near) break
+          if (pkt.timestamp < last) return dispose(), null // B-frames: this cut can't be copied
+          last = pkt.timestamp
+        }
+      }
+      pieces.push({ pl, sink, key })
+    }
+    return { ...first!, pieces, dispose }
+  } catch {
+    dispose()
+    return null // anything unexpected in a file: re-encode instead
+  }
+}
+
+// Same codec, size and codec setup bytes: packets from either decode with one decoder.
+const sameConfig = (a: VideoDecoderConfig, b: VideoDecoderConfig) => {
+  const bytes = (d?: AllowSharedBufferSource) =>
+    !d ? new Uint8Array() : ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d)
+  const [x, y] = [bytes(a.description), bytes(b.description)]
+  return a.codec === b.codec && a.codedWidth === b.codedWidth && a.codedHeight === b.codedHeight && x.length === y.length && x.every((v, i) => v === y[i])
+}
+
+async function copyVideo({ config, pieces }: Plan, video: EncodedVideoPacketSource, duration: number) {
+  let meta: EncodedVideoChunkMetadata | undefined = { decoderConfig: config } // with the first packet
+  let shown = 0
+  try {
+    for (const { pl, sink, key } of pieces) {
+      const { in: a, out: b } = pl.clip
+      for await (const pkt of sink.packets(key)) {
+        ac.signal.throwIfAborted()
+        if (pkt.timestamp >= b - 1e-6) break
+        if (pkt.timestamp < a - 1e-6) continue // a frame from before the cut, shown earlier
+        const t = pl.start + (pkt.timestamp - a)
+        await video.add(pkt.clone({ timestamp: t, duration: Math.min(pkt.duration, b - pkt.timestamp) }), meta)
+        meta = undefined
+        if (performance.now() - shown > 50) {
+          shown = performance.now()
+          post({ type: 'progress', fraction: t / duration, t })
+        }
+      }
+    }
+  } finally {
+    post({ type: 'progress', fraction: 1, t: Infinity }) // done (or failed): the mix needn't wait any more
   }
 }
 

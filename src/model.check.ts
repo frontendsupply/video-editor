@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts,
   type Clip, type Project,
 } from './model.ts'
 
@@ -178,5 +178,19 @@ eq([sameFile({ name: 'a.mp4', size: 10 }, { name: 'a.mp4', size: 10 }), sameFile
   const c = newClip(part)
   eq([c.in, c.out, binLength(part), binLength({ duration: 10 } as never)], [2, 5.5, 3.5, 10], 'saved clip range')
 }
+
+// Copyable edits: plain cuts on Video 1 that last as long as the edit.
+eq(
+  [
+    plainCuts(proj([clip('a'), clip('b', { in: 2 })], [clip('m', { out: 18 })])),
+    plainCuts(proj([clip('a', { speed: 2 })])),
+    plainCuts(proj([clip('a'), clip('b', { gap: 1 })])),
+    plainCuts(proj([clip('a')], [], [clip('o', { lane: 0 })])),
+    plainCuts(proj([clip('a')], [clip('m', { start: 5, out: 10 })])), // music runs past the video
+    plainCuts(proj([])),
+  ],
+  [true, false, false, false, false, false],
+  'plain cuts',
+)
 
 console.log('model ok')

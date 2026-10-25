@@ -210,6 +210,14 @@ export function drawFrame(
   ctx.drawImage(src, r.x, r.y, r.w, r.h)
 }
 
+// An edit whose video could be copied as it is, without re-encoding: Video 1 only, at normal speed, with no gaps, and
+// the video lasting as long as the edit. (Whether the files allow it is checked in export.worker.ts.)
+export const plainCuts = (p: Project) =>
+  p.video.length > 0 &&
+  !p.overlay.length &&
+  p.video.every(c => c.speed === 1 && !c.gap) &&
+  layoutVideo(p.video).at(-1)!.end >= projectDuration(p) - 1e-6
+
 // ---- edits (all return a new Project) ----
 
 export const newClip = (m: Media, start = 0): Clip => ({
