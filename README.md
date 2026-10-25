@@ -30,12 +30,13 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 
 - `src/model.ts`: project data, timing math, edits (split/ripple delete/crop/trim/move/gaps), timecode, `drawFrame`. Pure, no DOM.
 - `src/history.ts`: undo/redo state hook (one gesture is one step).
+- `src/store.ts`: saves the open project in IndexedDB and reconnects its files after a reload.
 - `src/media.ts`: probe an imported file (tracks, size, duration, thumbnail) and read its waveform.
 - `src/peaks.worker.ts`: reads one slice of a file's audio into waveform peaks, off the main thread.
 - `src/player.ts`: preview engine (media elements + canvas + clock).
 - `src/export.ts`: MP4 export (video render, audio mix, pitch-preserving speed).
 - `src/main.tsx`, `src/Timeline.tsx`: UI.
-- `src/ui.tsx`: UI primitives (Select, Segmented, Slider, Tooltip, Toast, export quality list) and shared class strings.
+- `src/ui.tsx`: UI primitives (Select, Slider, Tooltip, Toast, the export menu, the frame menu) and shared class strings.
 - `src/styles.css`: theme tokens (ink, a muted color that's the lightest text, accent) and base styles; `src/fonts`: the variable UI font; `public/`: favicon and app icons.
 
 ## Features
@@ -47,6 +48,8 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 **Tracks**: Video 1 is the magnetic main track: clips follow each other, plus any gap you leave. Drag a Video 1 clip sideways to slide it and everything after it (the gap opens in front of it; an Offset readout shows its new start); drag it left until its middle passes the clip in front and it's carried alone, dropping in where you let go (at that time if there's room, pushing later clips only if they'd overlap). Gaps play and export as black. Every video clip shows its own sound as a waveform strip under its thumbnails, so the sound moves, trims, splits and deletes with it. Right-click a clip → **Unlink audio** to move that sound into its own clip on the first free audio lane (the video clip goes silent); from then on they edit separately. The **− +** row under each group removes or adds a track: Video 2, 3, … are overlay tracks drawn on top of the ones below (in Fit mode their bars show the layer underneath), and Audio 1, 2, … hold music, voiceover and unlinked sound. Drag media from the bin onto any lane, drag clips up or down to change lanes (between Video 1 and the overlay tracks too: leaving Video 1 closes up the clip's length, entering it slots the clip in). **−** removes the last added track and asks first (alert dialog) if it still has clips; Video 1 and Audio 1 always stay. Click a track's name to rename it (Enter keeps it, Esc cancels, an empty name brings the default back). Waveforms are read once per file right after import, in Web Workers (long files as parallel slices, one per spare core: a 4-hour video takes ~5 s); until done the strip shimmers, the bars fill in and a thin bar fills along the bottom of the file's thumbnail in the bin.
 
 **Snapping**: while you move or trim a clip, select a range or drop from the bin, edges within 8 px lock onto other clips' starts and ends (on every track), the playhead and 0:00, and a guide line shows the exact time. With nothing to snap to, edits land on the ruler's small ticks, so times come out round at any zoom (tenths zoomed in, whole minutes far out), and timeline times show only the digits those ticks need. Hold **⌥ Alt** while dragging to place freely, down to single frames when zoomed in.
+
+**Saving**: the project saves itself as you edit (IndexedDB, on this device), along with each file's thumbnail and waveform; the video and audio stay where they are on disk. Reload or reopen the tab and it's back. Files added with **Add media** or dropped in Chromium browsers keep a handle to the file on disk: if the browser still allows reading them the project comes back by itself, otherwise one click on **Reconnect files** asks once. Files without a handle (other browsers, or moved on disk) are picked or dropped again and matched by name and size. **Start fresh** drops the saved project, and **New project** (the first button in the header) clears the current one; files on disk are never touched.
 
 **Splitting**: the scissors at the playhead's foot, or the Split ▾ button under the preview (split selected clip / all tracks / Video 1 / overlay tracks / audio tracks). With a range selected, splits happen at both of its edges.
 
@@ -65,10 +68,22 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 ## Roadmap
 
+Done lately:
+
+- **Saving and restoring projects**: autosave on this device; files reconnect through their handles, or are matched by name and size when picked again.
+- **Selecting and cutting** across all tracks: the Select bar, range block, start/end marks, crop and region export.
+- **Gaps** on the magnetic Video 1 track, and left-edge trims that leave later clips in place.
+- **Waveforms** read in Web Workers, in parallel slices, with progress on the bin thumbnail.
+- **Bin checkbox** to set a file's clips aside and bring them back as they were; removing files.
+- **Snapping** that always lands on the ruler ticks or clip edges (⌥ places freely).
+- **Renamable tracks.**
+- **A compact interface**: square grey panels split by 1px lines, a slim header, one-row transport and clip settings, the frame menu on the preview.
+
+Next:
+
 1. **Clip Preview (source monitor)**: trim a file with Start/End markers before placing it, and split it into new bin clips.
-2. **Long exports**: mix audio in chunks, so multi-hour exports don't run out of memory.
-3. **Lossless fast path**: untouched stretches copy packets without re-encoding.
-4. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
-5. **Save/restore projects**: IndexedDB + File System Access handles, so nothing is re-imported.
-6. **Export in a Worker**: keeps the UI fully smooth during long exports.
-7. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
+2. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
+3. **Long exports**: mix audio in chunks, so multi-hour exports don't run out of memory.
+4. **Export in a Worker**: keeps the UI fully smooth during long exports.
+5. **Lossless fast path**: untouched stretches copy packets without re-encoding.
+6. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).

@@ -9,7 +9,7 @@ import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { bind, play } from 'cuelume'
 import {
-  Check, ChevronDown, ChevronLeft, ChevronRight, Film, Maximize2, Music, Pause, Play, Plus, Redo2,
+  Check, ChevronDown, ChevronLeft, ChevronRight, Film, FilePlus2, History, Maximize2, Music, Pause, Play, Plus, Redo2,
   Scissors, SkipBack, SkipForward, Trash2, Undo2, Upload, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -18,10 +18,11 @@ import { useHistory } from './history'
 import { computePeaks, importFile } from './media'
 import {
   audio1End, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip, trackName,
-  projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, unparkMedia, updateClip,
+  projectDuration, removeClip, rippleDelete, sameFile, splitAt, splitRange, timecode, unparkMedia, updateClip,
   type Clip, type DropTarget, type ExportPreset, type Media, type Project, type SplitTarget,
 } from './model'
 import { Player } from './player'
+import { clear, load, readHandles, save, toMedia, type Saved } from './store'
 import { MEDIA_MIME, Timeline, zoomToFit, type Range } from './Timeline'
 import { dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
 import './styles.css'
@@ -33,6 +34,12 @@ const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, la
 const OWN_KEYS = 'input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="tab"], [role="alertdialog"]'
 const ZOOM_MIN = 2 // empty timeline; with clips, the zoom-out limit fits the whole edit
 const ZOOM_MAX = 200
+// What the file picker offers (any file can still be chosen).
+const PICK = [{ description: 'Video and audio', accept: { 'video/*': ['.mp4', '.mov', '.m4v', '.webm', '.mkv', '.avi'], 'audio/*': ['.mp3', '.wav', '.m4a', '.aac', '.ogg', '.opus', '.flac'] } }]
+
+type Picked = { file: File; handle?: FileSystemFileHandle }
+// The last project, waiting for its files: the ones found so far, and whether the browser was already asked for the rest.
+type Restore = { saved: Saved; files: Map<string, File>; asked?: boolean }
 
 function App() {
   const [media, setMedia] = useState<Record<string, Media>>({})
@@ -48,6 +55,7 @@ function App() {
   const [fileOver, setFileOver] = useState(false)
   // A file being removed from the bin while it has clips: closing only flips `open`, so the text stays while it animates out.
   const [removing, setRemoving] = useState<{ id: string; clips: number; open: boolean } | null>(null)
+  const [askNew, setAskNew] = useState(false) // confirming New project
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const timeRef = useRef<HTMLSpanElement>(null)
@@ -145,14 +153,74 @@ function App() {
     wasEmpty.current = !duration
   }, [duration, viewW])
 
-  // Nothing is saved yet: ask before a reload or a closed tab throws the edit away.
-  const edited = duration > 0
+  // The project is saved as you go. On load the last one comes back by itself when the browser still lets us read its
+  // files; otherwise a panel asks to read them again (or to pick them) or to start fresh. Nothing is saved until that's
+  // settled, so the empty editor never overwrites it.
+  const [loaded, setLoaded] = useState(false)
+  const [restore, setRestore] = useState<Restore | null>(null)
+  const restoreRef = useRef(restore)
+  restoreRef.current = restore
   useEffect(() => {
-    if (!edited) return
-    const ask = (e: BeforeUnloadEvent) => e.preventDefault()
-    addEventListener('beforeunload', ask)
-    return () => removeEventListener('beforeunload', ask)
-  }, [edited])
+    load()
+      .then(async saved => {
+        if (!saved) return
+        const files = await readHandles(saved.media, false)
+        if (files.size === saved.media.length) apply(saved, files)
+        else setRestore({ saved, files })
+      })
+      .catch(e => console.warn("Couldn't load the saved project", e))
+      .finally(() => setLoaded(true))
+  }, [])
+  useEffect(() => {
+    if (!loaded || restore) return
+    const now = () => save(project, media)
+    const later = setTimeout(now, 300)
+    addEventListener('pagehide', now) // closing the tab inside those 300 ms
+    return () => (clearTimeout(later), removeEventListener('pagehide', now))
+  }, [project, media, loaded, restore])
+  function apply(saved: Saved, files: Map<string, File>) {
+    const ms = saved.media.map(m => toMedia(m, files.get(m.id)!))
+    setMedia(Object.fromEntries(ms.map(m => [m.id, m])))
+    history.reset(saved.project)
+    ms.filter(m => m.hasAudio && m.peaksDone !== 1).forEach(readPeaks)
+    setRestore(null)
+  }
+  // One click lets the browser read the saved files again; any it can't reach have to be picked.
+  async function reconnect(r: Restore) {
+    const files = new Map([...r.files, ...(await readHandles(r.saved.media.filter(m => !r.files.has(m.id)), true))])
+    if (files.size === r.saved.media.length) apply(r.saved, files)
+    else setRestore({ ...r, files, asked: true })
+  }
+  // Files picked or dropped while the panel is up are the missing ones, matched by name and size. A new handle is kept,
+  // so next time they come back by themselves.
+  function locate(r: Restore, items: Picked[]) {
+    const files = new Map(r.files)
+    const media = r.saved.media.map(m => {
+      const found = !files.has(m.id) && items.find(x => sameFile(m, x.file))
+      if (!found) return m
+      files.set(m.id, found.file)
+      return found.handle ? { ...m, handle: found.handle } : m
+    })
+    const extra = items.filter(x => !media.some(m => files.get(m.id) === x.file)).map(x => x.file.name)
+    if (extra.length) toast.add({ title: 'Not in your last project', description: `${extra.join(', ')}. Start fresh to work with new files.` })
+    const saved = { ...r.saved, media }
+    if (files.size === media.length) apply(saved, files)
+    else setRestore({ ...r, saved, files })
+  }
+  // New project: an empty timeline and bin (the files on disk aren't touched). The old one is gone from storage too.
+  const newProject = () => {
+    play('close', { emphasis: 'strong' })
+    playerRef.current!.pause()
+    setMedia({})
+    history.reset(emptyProject())
+    setSelected(null)
+    setRange(null)
+  }
+  const startFresh = () => {
+    play('close')
+    clear().catch(() => {})
+    setRestore(null)
+  }
 
   const change = (p: Project, seekTo?: number) => {
     seekAfter.current = seekTo
@@ -233,10 +301,30 @@ function App() {
     setRange(r.b - r.a > 0.01 ? r : null)
   }
 
-  async function addFiles(files: File[]) {
-    const results = await Promise.allSettled(files.map(importFile))
+  // A file's waveform, read in the background after import (or after a restore, if it wasn't finished).
+  function readPeaks(m: Media) {
+    const wave = (patch: Partial<Media>) => setMedia(ms => ({ ...ms, [m.id]: { ...ms[m.id], ...patch } }))
+    computePeaks(m.file, m.duration, (peaks, done) => wave({ peaks, peaksDone: done }))
+      .then(peaks => wave({ peaks, peaksDone: 1 }))
+      .catch(() => wave({ peaks: undefined, peaksDone: 1 })) // the waveform is decoration; playback and export don't need it
+  }
+
+  // The file picker, with handles where the browser offers them so a saved project can read the files again.
+  async function pick() {
+    if (!window.showOpenFilePicker) return fileRef.current!.click()
+    try {
+      const handles = await window.showOpenFilePicker({ multiple: true, types: PICK })
+      addFiles(await Promise.all(handles.map(async handle => ({ file: await handle.getFile(), handle }))))
+    } catch {
+      // dismissed
+    }
+  }
+
+  async function addFiles(items: Picked[]) {
+    if (restoreRef.current) return locate(restoreRef.current, items)
+    const results = await Promise.allSettled(items.map(async ({ file, handle }) => ({ ...(await importFile(file)), handle })))
     const ok = results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : []))
-    const failed = results.flatMap((r, i) => (r.status === 'rejected' ? [`${files[i].name}: ${r.reason?.message ?? r.reason}`] : []))
+    const failed = results.flatMap((r, i) => (r.status === 'rejected' ? [`${items[i].file.name}: ${r.reason?.message ?? r.reason}`] : []))
     if (failed.length) {
       play('error')
       toast.add({ title: "Couldn't import", description: failed.join('\n'), type: 'error', timeout: 0 })
@@ -244,12 +332,7 @@ function App() {
     if (!ok.length) return
     play('success', { emphasis: 'subtle' })
     setMedia(m => ({ ...m, ...Object.fromEntries(ok.map(x => [x.id, x])) }))
-    for (const m of ok.filter(m => m.hasAudio)) {
-      const wave = (patch: Partial<Media>) => setMedia(ms => ({ ...ms, [m.id]: { ...ms[m.id], ...patch } }))
-      computePeaks(m.file, m.duration, (peaks, done) => wave({ peaks, peaksDone: done }))
-        .then(peaks => wave({ peaks, peaksDone: 1 }))
-        .catch(() => wave({ peaks: undefined, peaksDone: 1 })) // the waveform is decoration; playback and export don't need it
-    }
+    ok.filter(m => m.hasAudio).forEach(readPeaks)
     setProject(p => {
       let audioEnd = audio1End(p)
       const audio = ok.filter(m => !m.hasVideo).map(m => {
@@ -272,7 +355,14 @@ function App() {
     const drop = (e: DragEvent) => {
       e.preventDefault()
       setFileOver(false)
-      if (e.dataTransfer?.files.length) addFiles([...e.dataTransfer.files])
+      const dt = e.dataTransfer
+      if (!dt?.files.length) return
+      const files = [...dt.files]
+      // Handles can only be asked for while the drop event runs.
+      const handles = [...dt.items].filter(i => i.kind === 'file').map(i => i.getAsFileSystemHandle?.().catch(() => null) ?? null)
+      Promise.all(handles).then(hs =>
+        addFiles(files.map((file, i) => ({ file, handle: hs[i]?.kind === 'file' ? (hs[i] as FileSystemFileHandle) : undefined }))),
+      )
     }
     addEventListener('dragover', over)
     addEventListener('dragleave', leave)
@@ -377,13 +467,14 @@ function App() {
   return (
     <div className="flex h-full flex-col">
       <input ref={fileRef} type="file" multiple accept="video/*,audio/*" hidden onChange={e => {
-        addFiles([...e.target.files!])
+        addFiles([...e.target.files!].map(file => ({ file })))
         e.target.value = ''
       }} />
 
       {/* header: one slim row of small controls */}
       <header className="flex h-8 shrink-0 items-center gap-0.5 border-b border-line bg-chrome px-1.5">
-        <button className={headerBtn} onClick={() => fileRef.current!.click()} data-cuelume-open=""><Plus size={13} />Add media</button>
+        <Tip label="New project"><button className={headerIcon} onClick={() => (play('open'), setAskNew(true))} disabled={!Object.keys(media).length} aria-label="New project"><FilePlus2 size={13} /></button></Tip>
+        <button className={headerBtn} onClick={pick} data-cuelume-open=""><Plus size={13} />Add media</button>
         <Divider />
         <Tip label={`Undo (${MOD}Z)`}><button className={headerIcon} onClick={undo} disabled={!history.canUndo} aria-label="Undo"><Undo2 size={13} /></button></Tip>
         <Tip label={`Redo (⇧${MOD}Z)`}><button className={headerIcon} onClick={redo} disabled={!history.canRedo} aria-label="Redo"><Redo2 size={13} /></button></Tip>
@@ -412,22 +503,19 @@ function App() {
         {/* media bin */}
         <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-line bg-canvas">
           <Tabs.Root value={binTab} onValueChange={v => setBinTab(v as 'video' | 'audio')} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex h-8 items-stretch border-b border-line bg-chrome pr-1">
-              <Tabs.List className="flex flex-1">
-                {(['video', 'audio'] as const).map(kind => (
-                  <Tabs.Tab
-                    key={kind}
-                    value={kind}
-                    data-cuelume-select=""
-                    className="-mb-px flex items-center gap-1.5 border-r border-line px-3 text-[11px] font-medium text-muted outline-none hover:text-ink data-active:bg-canvas data-active:text-ink"
-                  >
-                    {kind === 'video' ? 'Video files' : 'Audio files'}
-                    <span className="text-[10px] text-muted tabular-nums">{bin(kind).length}</span>
-                  </Tabs.Tab>
-                ))}
-              </Tabs.List>
-              <Tip label="Add media"><button className={headerIcon} onClick={() => fileRef.current!.click()} data-cuelume-open="" aria-label="Add media"><Plus size={14} /></button></Tip>
-            </div>
+            <Tabs.List className="flex h-8 border-b border-line bg-chrome">
+              {(['video', 'audio'] as const).map(kind => (
+                <Tabs.Tab
+                  key={kind}
+                  value={kind}
+                  data-cuelume-select=""
+                  className="-mb-px flex items-center gap-1.5 border-r border-line px-3 text-[11px] font-medium text-muted outline-none hover:text-ink data-active:bg-canvas data-active:text-ink"
+                >
+                  {kind === 'video' ? 'Video files' : 'Audio files'}
+                  <span className="text-[10px] text-muted tabular-nums">{bin(kind).length}</span>
+                </Tabs.Tab>
+              ))}
+            </Tabs.List>
             {(['video', 'audio'] as const).map(kind => (
               <Tabs.Panel key={kind} value={kind} className="min-h-0 flex-1 overflow-y-auto outline-none">
                 <div className="grid grid-cols-2 content-start gap-2 p-2">
@@ -501,7 +589,7 @@ function App() {
                     ))}
                   </AnimatePresence>
                 </div>
-                {!bin(kind).length && <p className="px-3 py-2 text-[11px] text-muted">Drop {kind} files anywhere, or click + to import.</p>}
+                {!bin(kind).length && <p className="px-3 py-2 text-[11px] text-muted">Drop {kind} files anywhere, or use Add media.</p>}
               </Tabs.Panel>
             ))}
           </Tabs.Root>
@@ -519,12 +607,23 @@ function App() {
               <canvas ref={canvasRef} className={`max-h-full max-w-full rounded-md ring-1 ring-line ${duration ? '' : 'invisible'}`} />
             </div>
             <AnimatePresence>
-              {!duration && (
-                <motion.button
+              {restore ? (
+                <motion.div
+                  key="restore"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0, scale: 0.98 }}
-                  onClick={() => fileRef.current!.click()}
+                  className="absolute inset-3 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-line px-6 text-center"
+                >
+                  <RestorePanel restore={restore} onReconnect={() => reconnect(restore)} onLocate={pick} onFresh={startFresh} />
+                </motion.div>
+              ) : loaded && !duration && (
+                <motion.button
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  onClick={pick}
                   data-cuelume-open=""
                   className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-ink/60 hover:border-ink/25"
                 >
@@ -611,7 +710,7 @@ function App() {
           time={() => playerRef.current!.t}
           viewW={viewW}
           onViewW={setViewW}
-          onAdd={() => fileRef.current!.click()}
+          onAdd={pick}
           playheadRef={playheadRef}
           playheadLabelRef={playheadLabelRef}
           scrollRef={scrollRef}
@@ -693,6 +792,29 @@ function App() {
         </AlertDialog.Portal>
       </AlertDialog.Root>
 
+      <AlertDialog.Root open={askNew} onOpenChange={setAskNew}>
+        <AlertDialog.Portal>
+          <AlertDialog.Backdrop className={dialogBackdrop} />
+          <AlertDialog.Popup className={dialogPopup}>
+            <div className="grid gap-1">
+              <AlertDialog.Title className="text-sm font-semibold">Start a new project?</AlertDialog.Title>
+              <AlertDialog.Description className="text-[11px] text-muted">
+                This clears the timeline and the media bin. Your files on disk aren't touched.
+              </AlertDialog.Description>
+            </div>
+            <div className="flex justify-end gap-2">
+              <AlertDialog.Close className={pill}>Cancel</AlertDialog.Close>
+              <button
+                className="inline-flex h-8 items-center rounded-md bg-playhead/10 px-3 text-[11px] font-semibold text-playhead hover:bg-playhead/15"
+                onClick={() => (newProject(), setAskNew(false))}
+              >
+                New project
+              </button>
+            </div>
+          </AlertDialog.Popup>
+        </AlertDialog.Portal>
+      </AlertDialog.Root>
+
       <AlertDialog.Root open={progress !== null} onOpenChange={open => !open && abortRef.current?.abort()}>
         <AlertDialog.Portal>
           <AlertDialog.Backdrop className={dialogBackdrop} />
@@ -713,6 +835,41 @@ function App() {
         </AlertDialog.Portal>
       </AlertDialog.Root>
     </div>
+  )
+}
+
+// The last project, waiting for its files: let the browser read them again (one click), or pick the ones it can't
+// reach, or drop it and start over.
+function RestorePanel({ restore: { saved, files, asked }, onReconnect, onLocate, onFresh }: {
+  restore: Restore
+  onReconnect: () => void
+  onLocate: () => void
+  onFresh: () => void
+}) {
+  const missing = saved.media.filter(m => !files.has(m.id))
+  const ask = !asked && missing.some(m => m.handle)
+  const names = missing.slice(0, 3).map(m => m.name).join(', ') + (missing.length > 3 ? ` and ${missing.length - 3} more` : '')
+  const clips = saved.project.video.length + saved.project.overlay.length + saved.project.audio.length
+  const when = new Date(saved.savedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  return (
+    <>
+      <span className="grid size-12 place-items-center bg-ink/6"><History size={18} /></span>
+      <div className="grid gap-1">
+        <span className="text-sm font-semibold">Pick up where you left off</span>
+        <span className="text-[11px] text-muted">{clips} {clips === 1 ? 'clip' : 'clips'} · saved {when}</span>
+      </div>
+      <span className="max-w-96 text-[11px] text-muted">
+        {ask
+          ? `Allow the browser to read ${missing.length === 1 ? 'its file' : `its ${missing.length} files`} again. They never leave your device.`
+          : `Pick ${names} again (or drop ${missing.length === 1 ? 'it' : 'them'} here) to reconnect.`}
+      </span>
+      <div className="flex items-center gap-1">
+        <button className={headerBtn} onClick={onFresh}>Start fresh</button>
+        <button className={`${headerBtn} bg-surface font-semibold text-ink ring-1 ring-line`} onClick={ask ? onReconnect : onLocate} data-cuelume-open="">
+          {ask ? 'Reconnect files' : 'Locate files'}
+        </button>
+      </div>
+    </>
   )
 }
 
