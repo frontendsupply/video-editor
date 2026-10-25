@@ -3,7 +3,7 @@
 // so the page renders the audio in chunks and posts them in (see export.ts).
 import {
   ALL_FORMATS, AudioSample, AudioSampleSource, BlobSource, BufferTarget, CanvasSink, EncodedPacketSink, EncodedVideoPacketSource, Input,
-  Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, VideoSample, VideoSampleSink, VideoSampleSource,
+  Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_MEDIUM, StreamTarget, VideoSample, VideoSampleSink, VideoSampleSource,
   getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
 } from 'mediabunny'
 import {
@@ -31,7 +31,7 @@ export type FromWorker =
   | { type: 'done'; buffer: ArrayBuffer | null; lossless: boolean } // lossless: the video was copied, not re-encoded
   | { type: 'error'; message: string }
 
-const QUALITY = { high: QUALITY_HIGH, medium: QUALITY_MEDIUM, low: QUALITY_LOW }
+const QUALITY = { high: QUALITY_HIGH, medium: QUALITY_MEDIUM }
 const post = (m: FromWorker, transfer: Transferable[] = []) => postMessage(m, { transfer })
 
 const ac = new AbortController()

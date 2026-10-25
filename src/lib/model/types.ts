@@ -58,7 +58,7 @@ export type Placed = { clip: Clip; start: number; end: number }
 export type Range = { a: number; b: number }
 
 // Export quality: Original keeps the full output size; the rest cap the short edge and lower the bitrate.
-export type ExportPreset = { label: string; hint: string; short?: number; quality: 'high' | 'medium' | 'low' }
+export type ExportPreset = { label: string; short?: number; quality: 'high' | 'medium' }
 
 // What a split cuts: every track, one kind of track, or one clip (by id). 'video' is Video 1.
 export type SplitTarget = 'all' | 'video' | 'overlay' | 'audio' | (string & {})

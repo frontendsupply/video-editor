@@ -16,10 +16,9 @@ export function outputSize(p: Project, media: Record<string, { width: number; he
 // Export quality: Original keeps the full output size; the rest cap the short edge and lower the bitrate.
 
 export const EXPORT_PRESETS: ExportPreset[] = [
-  { label: 'Original', hint: 'Best quality', quality: 'high' },
-  { label: '1080p', hint: 'High quality', short: 1080, quality: 'high' },
-  { label: '720p', hint: 'Smaller file', short: 720, quality: 'medium' },
-  { label: '480p', hint: 'Smallest file', short: 480, quality: 'low' },
+  { label: 'Original', quality: 'high' },
+  { label: '1080p', short: 1080, quality: 'high' },
+  { label: '720p', short: 720, quality: 'medium' },
 ]
 
 export function exportSize(p: Project, media: Record<string, { width: number; height: number }>, short?: number): [number, number] {
