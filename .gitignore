@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+
+# footage and reference videos stay on disk, out of git
+*.mp4
+*.mov
+*.m4v
+*.webm
+*.mkv
