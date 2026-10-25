@@ -17,6 +17,9 @@ importers:
       '@ffmpeg/ffmpeg':
         specifier: 0.12.15
         version: 0.12.15
+      cn:
+        specifier: 0.5.0
+        version: 0.5.0
       cuelume:
         specifier: ^0.2.8
         version: 0.2.8
@@ -481,6 +484,11 @@ packages:
         optional: true
       oxc-transform-react:
         optional: true
+
+  cn@0.5.0:
+    resolution: {integrity: sha512-JGEixZEpfFXm1P5uXwvEobOFLlHwIWi5v4tjd1ZwfiYmcEilkuD2l+054rvJcYCR1B+uVThHeUbgmNz1FwuxuA==}
+    engines: {node: '>=22'}
+    hasBin: true
 
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
@@ -1084,6 +1092,8 @@ snapshots:
     dependencies:
       '@rolldown/pluginutils': 1.0.1
       vite: 8.3.5(jiti@2.7.0)
+
+  cn@0.5.0: {}
 
   csstype@3.2.3: {}
 

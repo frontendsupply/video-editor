@@ -32,19 +32,36 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 
 ## Files
 
-- `src/model.ts`: project data, timing math, edits (split/ripple delete/crop/trim/move/gaps), timecode, `drawFrame`. Pure, no DOM.
-- `src/history.ts`: undo/redo state hook (one gesture is one step).
-- `src/convert.ts`: makes a playable copy of a file the browser can't decode, with a software decoder, loaded only when needed.
-- `src/store.ts`: saves the open project in IndexedDB and reconnects its files after a reload.
-- `src/media.ts`: probe an imported file (tracks, size, duration, thumbnail) and read its waveform.
-- `src/peaks.worker.ts`: reads one slice of a file's audio into waveform peaks, off the main thread.
-- `src/player.ts`: preview engine (media elements + canvas + clock).
-- `src/export.ts`: MP4 export from the page: starts the worker and renders the audio mix (pitch-preserving speed) for it.
-- `src/export.worker.ts`: the export's heavy part, off the page: video frames, encoding, muxing and writing the file.
-- `src/main.tsx`, `src/Timeline.tsx`: UI.
-- `src/ClipPreview.tsx`: plays one file from the bin on its own, to mark the part to use.
-- `src/ui.tsx`: UI primitives (Select, Slider, Tooltip, Toast, the export menu, the frame menu) and shared class strings.
-- `src/styles.css`: theme tokens (ink, a muted color that's the lightest text, accent) and base styles; `src/fonts`: the variable UI font; `public/`: favicon and app icons.
+```
+src/
+  main.tsx                 entry: mounts the app with its tooltip and toast providers
+  app/App.tsx              the editor's layout, wired to the hooks below
+  components/
+    ui/                    building blocks: Select, Slider, Tip, Toasts, ConfirmDialog, Divider, class recipes
+    header/                the header row (New project, Add media, undo/redo/delete, Export)
+    bin/                   the media bin and its file cards
+    preview/               preview tabs, the sequence view and restore panel, transport, Clip Preview, frame menu
+    timeline/              the timeline: ruler, Select bar, tracks, clips, waveforms, playhead, menus, footer
+    export/                the export menu's choices and the progress dialog
+  hooks/                   the editor's state and behaviour: project and history, zoom, player, saving,
+                           importing and converting, Clip Preview, export, shortcuts
+  lib/
+    model/                 the timeline model: types, layout, edits, tracks, snapping, times, output frame.
+                           Pure (no DOM), so it runs and is checked in Node
+    media/                 probing files, waveforms (in workers), converting files the browser can't decode
+    export/                MP4 export: the page side (audio mix) and the worker (video, muxing, file writing)
+    player.ts              the preview engine (media elements, a canvas and a clock)
+    store.ts               saving the project in IndexedDB and reconnecting its files
+    utils.ts               cn() for class names, and small shared helpers
+  styles/globals.css       theme tokens (ink, muted, accent, panel greys) and base styles
+  assets/fonts/            the variable UI font
+test/                      model checks, the model fuzzer, browser helpers, the stress-media script
+public/                    favicon and app icons
+```
+
+Imports use `@/` for `src/` (`@/lib/model`, `@/components/ui`); `lib/model` imports its own files relatively, with `.ts`
+extensions, so Node can run it directly. Class names are joined with `cn()`, which also settles conflicting utility classes (the
+last class wins).
 
 ## Features
 
