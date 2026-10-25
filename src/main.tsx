@@ -23,7 +23,7 @@ import {
 } from './model'
 import { Player } from './player'
 import { MEDIA_MIME, Timeline, zoomToFit, type Range } from './Timeline'
-import { card, dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
+import { dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
 import './styles.css'
 
 const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`
@@ -43,7 +43,6 @@ function App() {
   const [zoom, setZoom] = useState(40) // px per second as last set; `pps` below keeps it in range
   const [viewW, setViewW] = useState(0) // visible timeline width
   const [timelineH, setTimelineH] = useState(244)
-  const [snapping, setSnapping] = useState(true)
   const [binTab, setBinTab] = useState<'video' | 'audio'>('video')
   const [progress, setProgress] = useState<number | null>(null)
   const [fileOver, setFileOver] = useState(false)
@@ -74,7 +73,7 @@ function App() {
   ppsRef.current = pps
   const viewWRef = useRef(viewW) // visible width of the lanes (the scroll area minus the track names)
   viewWRef.current = viewW
-  const digits = digitsFor(gridFor(pps, project.fps)) // timeline times show only what the zoom can place
+  const digits = digitsFor(gridFor(pps, project.fps, true)) // timeline times show only what the zoom can place
   const digitsRef = useRef(digits)
   digitsRef.current = digits
   const sel = findPlaced(project, selected)
@@ -99,7 +98,7 @@ function App() {
       label.textContent = timecode(t, digitsRef.current && 1) // at most tenths: the clock under the preview has the ms
       // The pill is centred on the playhead (~34 px each side): nudge it (and the mark buttons beside it) to stay inside the
       // visible timeline.
-      const left = x + 16 - sc.scrollLeft // the lanes start 16 px into the scroll area
+      const left = x - sc.scrollLeft
       playheadRef.current!.style.setProperty('--nudge', `${Math.max(0, 34 - left) - Math.max(0, 34 - (viewWRef.current - left))}px`)
     }
     playerRef.current = player
@@ -131,8 +130,8 @@ function App() {
     zoomed.current = { pps, scroll: before.scroll }
     if (!sc || before.pps === pps) return
     const t = playerRef.current!.t
-    const x = t * before.pps + 16 - before.scroll // from the left edge of the visible timeline (lanes start 16 px in)
-    sc.scrollLeft = t * pps + 16 - (x >= 0 && x <= viewW ? x : viewW / 2)
+    const x = t * before.pps - before.scroll // from the left edge of the visible timeline
+    sc.scrollLeft = t * pps - (x >= 0 && x <= viewW ? x : viewW / 2)
     zoomed.current.scroll = sc.scrollLeft
   }, [pps])
   useEffect(() => playerRef.current!.onTime(playerRef.current!.t), [pps])
@@ -303,10 +302,7 @@ function App() {
       if (k === ' ') toggle()
       else if (k === 's') split('all')
       else if (k === 'delete' || k === 'backspace') del()
-      else if (k === 'n') {
-        play('toggle', { direction: snapping ? 'back' : 'forward', emphasis: 'subtle' })
-        setSnapping(on => !on)
-      } else if (k === 'i') mark('in')
+      else if (k === 'i') mark('in')
       else if (k === 'o') mark('out')
       else if (k === 'escape') (setRange(null), setSelected(null))
       else if (k === 'arrowleft') seek(playerRef.current!.t - (e.shiftKey ? 1 : frame))
@@ -377,17 +373,16 @@ function App() {
   }
 
   const bin = (kind: 'video' | 'audio') => Object.values(media).filter(m => (kind === 'video') === m.hasVideo && (!m.removed || used.has(m.id)))
-  const iconBtn = 'grid size-8 place-items-center rounded-md text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-30 disabled:pointer-events-none'
 
   return (
-    <div className="flex h-full flex-col p-1.5">
+    <div className="flex h-full flex-col">
       <input ref={fileRef} type="file" multiple accept="video/*,audio/*" hidden onChange={e => {
         addFiles([...e.target.files!])
         e.target.value = ''
       }} />
 
       {/* header: one slim row of small controls */}
-      <header className="mb-1.5 flex h-7 items-center gap-0.5">
+      <header className="flex h-8 shrink-0 items-center gap-0.5 border-b border-line bg-chrome px-1.5">
         <button className={headerBtn} onClick={() => fileRef.current!.click()} data-cuelume-open=""><Plus size={13} />Add media</button>
         <Divider />
         <Tip label={`Undo (${MOD}Z)`}><button className={headerIcon} onClick={undo} disabled={!history.canUndo} aria-label="Undo"><Undo2 size={13} /></button></Tip>
@@ -399,7 +394,7 @@ function App() {
         <Menu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
           <Menu.Trigger
             disabled={!duration || progress !== null}
-            className={`${headerBtn} ml-1.5 bg-white font-semibold text-ink ring-1 ring-ink/12 data-popup-open:bg-ink/5`}
+            className={`${headerBtn} ml-1.5 bg-surface font-semibold text-ink ring-1 ring-line data-popup-open:bg-ink/5`}
           >
             Export <ChevronDown size={12} />
           </Menu.Trigger>
@@ -413,26 +408,25 @@ function App() {
         </Menu.Root>
       </header>
 
-      <div className="flex min-h-0 flex-1 gap-1.5">
+      <div className="flex min-h-0 flex-1">
         {/* media bin */}
-        <aside className={`${card} flex w-72 shrink-0 flex-col overflow-hidden`}>
+        <aside className="flex w-72 shrink-0 flex-col overflow-hidden border-r border-line bg-canvas">
           <Tabs.Root value={binTab} onValueChange={v => setBinTab(v as 'video' | 'audio')} className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center border-b border-ink/6 pr-1">
-              <Tabs.List className="relative flex flex-1 gap-3 px-3">
+            <div className="flex h-8 items-stretch border-b border-line bg-chrome pr-1">
+              <Tabs.List className="flex flex-1">
                 {(['video', 'audio'] as const).map(kind => (
                   <Tabs.Tab
                     key={kind}
                     value={kind}
                     data-cuelume-select=""
-                    className="flex h-9 items-center gap-1.5 text-[11px] font-medium text-ink/45 outline-none hover:text-ink/80 data-active:text-ink"
+                    className="-mb-px flex items-center gap-1.5 border-r border-line px-3 text-[11px] font-medium text-muted outline-none hover:text-ink data-active:bg-canvas data-active:text-ink"
                   >
                     {kind === 'video' ? 'Video files' : 'Audio files'}
-                    <span className="text-[10px] text-ink/35 tabular-nums">{bin(kind).length}</span>
+                    <span className="text-[10px] text-muted tabular-nums">{bin(kind).length}</span>
                   </Tabs.Tab>
                 ))}
-                <Tabs.Indicator className="absolute bottom-0 left-(--active-tab-left) h-0.5 w-(--active-tab-width) bg-accent transition-[left,width] duration-200" />
               </Tabs.List>
-              <Tip label="Add media"><button className={iconBtn} onClick={() => fileRef.current!.click()} data-cuelume-open="" aria-label="Add media"><Plus size={14} /></button></Tip>
+              <Tip label="Add media"><button className={headerIcon} onClick={() => fileRef.current!.click()} data-cuelume-open="" aria-label="Add media"><Plus size={14} /></button></Tip>
             </div>
             {(['video', 'audio'] as const).map(kind => (
               <Tabs.Panel key={kind} value={kind} className="min-h-0 flex-1 overflow-y-auto outline-none">
@@ -451,7 +445,7 @@ function App() {
                           }}
                           className="cursor-grab active:cursor-grabbing"
                         >
-                        <div className="relative aspect-video overflow-hidden rounded-sm bg-ink/5 ring-1 ring-ink/10">
+                        <div className="relative aspect-video overflow-hidden rounded-sm bg-ink/5 ring-1 ring-line">
                           {m.thumb ? (
                             <img src={m.thumb} alt="" className="size-full object-cover" />
                           ) : (
@@ -463,7 +457,7 @@ function App() {
                               onClick={() => toggleMedia(m)}
                               aria-pressed={used.has(m.id)}
                               aria-label={used.has(m.id) ? 'Take off the timeline' : 'Put on the timeline'}
-                              className={`absolute top-1 left-1 grid size-4 place-items-center rounded-xs transition-[opacity,color] ${used.has(m.id) ? 'bg-accent text-ink' : `bg-white/90 text-transparent ring-1 ring-ink/25 hover:text-ink/40 ${parked.has(m.id) ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}`}
+                              className={`absolute top-1 left-1 grid size-4 place-items-center rounded-xs transition-[opacity,color] ${used.has(m.id) ? 'bg-accent text-white' : `bg-white/90 text-transparent ring-1 ring-ink/25 hover:text-muted ${parked.has(m.id) ? '' : 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100'}`}`}
                             >
                               <Check size={10} strokeWidth={3} />
                             </button>
@@ -472,12 +466,12 @@ function App() {
                           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                             {m.hasVideo && (
                               <Tip label="Append to video track">
-                                <button data-cuelume-tap="" className="grid size-5 place-items-center rounded-xs bg-white text-ink/70 ring-1 ring-ink/15 hover:text-ink" onClick={() => setProject(p => ({ ...p, video: [...p.video, newClip(m)] }))}><Film size={10} /></button>
+                                <button data-cuelume-tap="" className="grid size-5 place-items-center rounded-xs bg-surface text-ink/70 ring-1 ring-line hover:text-ink" onClick={() => setProject(p => ({ ...p, video: [...p.video, newClip(m)] }))}><Film size={10} /></button>
                               </Tip>
                             )}
                             {m.hasAudio && (
                               <Tip label="Add audio at playhead">
-                                <button data-cuelume-tap="" className="grid size-5 place-items-center rounded-xs bg-white text-ink/70 ring-1 ring-ink/15 hover:text-ink" onClick={() => setProject(p => ({ ...p, audio: [...p.audio, newClip(m, playerRef.current!.t)] }))}><Music size={10} /></button>
+                                <button data-cuelume-tap="" className="grid size-5 place-items-center rounded-xs bg-surface text-ink/70 ring-1 ring-line hover:text-ink" onClick={() => setProject(p => ({ ...p, audio: [...p.audio, newClip(m, playerRef.current!.t)] }))}><Music size={10} /></button>
                               </Tip>
                             )}
                           </div>
@@ -491,7 +485,7 @@ function App() {
                           )}
                         </div>
                         <div className="mt-1 truncate text-[11px]" title={m.name}>{m.name}</div>
-                        {m.hasVideo && <div className="text-[10px] text-ink/40 tabular-nums">{m.width}×{m.height}</div>}
+                        {m.hasVideo && <div className="text-[10px] text-muted tabular-nums">{m.width}×{m.height}</div>}
                         </ContextMenu.Trigger>
                         <ContextMenu.Portal>
                           <ContextMenu.Positioner className="z-20 outline-none">
@@ -507,7 +501,7 @@ function App() {
                     ))}
                   </AnimatePresence>
                 </div>
-                {!bin(kind).length && <p className="px-3 py-2 text-[11px] text-ink/35">Drop {kind} files anywhere, or click + to import.</p>}
+                {!bin(kind).length && <p className="px-3 py-2 text-[11px] text-muted">Drop {kind} files anywhere, or click + to import.</p>}
               </Tabs.Panel>
             ))}
           </Tabs.Root>
@@ -515,14 +509,14 @@ function App() {
         </aside>
 
         {/* sequence preview with transport and split */}
-        <main className={`${card} flex min-w-0 flex-1 flex-col overflow-hidden`}>
-          <div className="flex h-9 shrink-0 items-center justify-between border-b border-ink/6 px-3 text-[11px]">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface">
+          <div className="flex h-8 shrink-0 items-center justify-between border-b border-line bg-canvas px-3 text-[11px]">
             <span className="font-semibold">Sequence preview</span>
             <FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />
           </div>
           <div className="relative min-h-0 flex-1">
             <div className="absolute inset-3 flex items-center justify-center">
-              <canvas ref={canvasRef} className={`max-h-full max-w-full rounded-md ring-1 ring-ink/10 ${duration ? '' : 'invisible'}`} />
+              <canvas ref={canvasRef} className={`max-h-full max-w-full rounded-md ring-1 ring-line ${duration ? '' : 'invisible'}`} />
             </div>
             <AnimatePresence>
               {!duration && (
@@ -532,40 +526,40 @@ function App() {
                   exit={{ opacity: 0, scale: 0.98 }}
                   onClick={() => fileRef.current!.click()}
                   data-cuelume-open=""
-                  className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-ink/10 text-ink/60 hover:border-ink/25"
+                  className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-ink/60 hover:border-ink/25"
                 >
                   <span className="grid size-12 place-items-center rounded-md bg-ink/6"><Upload size={18} /></span>
                   <span className="text-sm font-semibold text-ink">Drop videos & audio here</span>
-                  <span className="text-[11px] text-ink/45">or click to import · files never leave your device</span>
+                  <span className="text-[11px] text-muted">or click to import · files never leave your device</span>
                 </motion.button>
               )}
             </AnimatePresence>
           </div>
-          <div className="flex h-11 shrink-0 items-center gap-2 border-t border-ink/6 px-2">
-            <span ref={timeRef} className="w-28 pl-1 text-xs font-semibold tabular-nums">0:00:00.000</span>
+          <div className="flex h-8 shrink-0 items-center gap-2 border-t border-line bg-canvas px-1.5">
+            <span ref={timeRef} className="w-28 pl-1 text-[11px] font-semibold tabular-nums">0:00:00.000</span>
             <div className="flex flex-1 items-center justify-center gap-0.5">
-              <Tip label="Go to start (Home)"><button className={iconBtn} onClick={() => seek(0)} disabled={!duration} data-cuelume-navigate="back"><SkipBack size={14} /></button></Tip>
-              <Tip label="Previous frame (←)"><button className={iconBtn} onClick={() => seek(playerRef.current!.t - 1 / project.fps)} disabled={!duration}><ChevronLeft size={16} /></button></Tip>
+              <Tip label="Go to start (Home)"><button className={headerIcon} onClick={() => seek(0)} disabled={!duration} data-cuelume-navigate="back"><SkipBack size={13} /></button></Tip>
+              <Tip label="Previous frame (←)"><button className={headerIcon} onClick={() => seek(playerRef.current!.t - 1 / project.fps)} disabled={!duration}><ChevronLeft size={14} /></button></Tip>
               <Tip label={playing ? 'Pause (Space)' : 'Play (Space)'}>
-                <button className="grid size-8 place-items-center rounded-md bg-white text-ink ring-1 ring-ink/10 hover:bg-ink/3 disabled:opacity-30" onClick={toggle} disabled={!duration} aria-label={playing ? 'Pause' : 'Play'}>
+                <button className="grid size-6 place-items-center text-ink transition-colors hover:bg-ink/5 disabled:opacity-40" onClick={toggle} disabled={!duration} aria-label={playing ? 'Pause' : 'Play'}>
                   <AnimatePresence mode="popLayout" initial={false}>
                     <motion.span key={playing ? 'pause' : 'play'} initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.5, opacity: 0 }} transition={{ duration: 0.12 }}>
-                      {playing ? <Pause size={13} fill="currentColor" /> : <Play size={13} fill="currentColor" className="translate-x-px" />}
+                      {playing ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" className="translate-x-px" />}
                     </motion.span>
                   </AnimatePresence>
                 </button>
               </Tip>
-              <Tip label="Next frame (→)"><button className={iconBtn} onClick={() => seek(playerRef.current!.t + 1 / project.fps)} disabled={!duration}><ChevronRight size={16} /></button></Tip>
-              <Tip label="Go to end (End)"><button className={iconBtn} onClick={() => seek(duration)} disabled={!duration} data-cuelume-navigate=""><SkipForward size={14} /></button></Tip>
+              <Tip label="Next frame (→)"><button className={headerIcon} onClick={() => seek(playerRef.current!.t + 1 / project.fps)} disabled={!duration}><ChevronRight size={14} /></button></Tip>
+              <Tip label="Go to end (End)"><button className={headerIcon} onClick={() => seek(duration)} disabled={!duration} data-cuelume-navigate=""><SkipForward size={13} /></button></Tip>
             </div>
-            <span className="w-28 text-right text-[11px] text-ink/45 tabular-nums">{timecode(duration)}</span>
+            <span className="w-28 text-right text-[11px] text-muted tabular-nums">{timecode(duration)}</span>
             {/* Split ▾ : main part splits all tracks, the menu picks what to split */}
-            <div className="flex">
+            <div className="flex items-center">
               <Tip label={range ? 'Split all tracks at selection edges (S)' : 'Split all tracks at playhead (S)'}>
-                <button className={`${pill} rounded-r-none`} onClick={() => split('all')} disabled={!duration}><Scissors size={13} /> Split</button>
+                <button className={headerBtn} onClick={() => split('all')} disabled={!duration}><Scissors size={12} /> Split</button>
               </Tip>
               <Menu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
-                <Menu.Trigger className={`${pill} rounded-l-none border-l border-ink/10 px-1.5 data-popup-open:bg-ink/10`} disabled={!duration} aria-label="Split options">
+                <Menu.Trigger className={`${headerIcon} data-popup-open:bg-ink/5`} disabled={!duration} aria-label="Split options">
                   <ChevronDown size={12} />
                 </Menu.Trigger>
                 <Menu.Portal>
@@ -573,7 +567,7 @@ function App() {
                     <Menu.Popup className={`${popup} w-60`}>
                       <Menu.Item className={menuItem} disabled={!selected} onClick={() => selected && split(selected)}>Split selected clip</Menu.Item>
                       <Menu.Item className={menuItem} onClick={() => split('all')}>
-                        Split all tracks <kbd className="font-sans text-[10px] text-ink/40">S</kbd>
+                        Split all tracks <kbd className="font-sans text-[10px] text-muted">S</kbd>
                       </Menu.Item>
                       <Menu.Separator className="mx-1 my-1 h-px bg-ink/6" />
                       <Menu.Item className={menuItem} disabled={!project.video.length} onClick={() => split('video')}>Split Video 1</Menu.Item>
@@ -591,8 +585,8 @@ function App() {
       </div>
 
       {/* splitter between preview and timeline */}
-      <div onPointerDown={resizeTimeline} className="group flex h-1.5 shrink-0 cursor-row-resize items-center justify-center" aria-label="Resize timeline">
-        <span className="h-0.5 w-10 rounded-xs bg-ink/15 transition-colors group-hover:bg-ink/40" />
+      <div onPointerDown={resizeTimeline} className="relative z-10 h-px shrink-0 cursor-row-resize bg-line transition-colors hover:bg-ink/40" aria-label="Resize timeline">
+        <span className="absolute inset-x-0 -top-1 -bottom-1" /> {/* a wider grab area than the 1px line */}
       </div>
 
       <TimelineBoundary onUndo={undo}>
@@ -617,8 +611,6 @@ function App() {
           time={() => playerRef.current!.t}
           viewW={viewW}
           onViewW={setViewW}
-          snapping={snapping}
-          onSnapping={setSnapping}
           onAdd={() => fileRef.current!.click()}
           playheadRef={playheadRef}
           playheadLabelRef={playheadLabelRef}
@@ -628,9 +620,9 @@ function App() {
               {sel && !range ? (
                 // the selected clip, in one row: name and times, then its settings
                 <div className="flex min-w-0 items-center gap-1.5 pl-1 text-[11px]">
-                  {media[sel.clip.mediaId].hasVideo ? <Film size={12} className="shrink-0 text-ink/40" /> : <Music size={12} className="shrink-0 text-ink/40" />}
+                  {media[sel.clip.mediaId].hasVideo ? <Film size={12} className="shrink-0 text-muted" /> : <Music size={12} className="shrink-0 text-muted" />}
                   <span className="max-w-48 truncate font-medium" title={media[sel.clip.mediaId].name}>{media[sel.clip.mediaId].name}</span>
-                  <span className="shrink-0 text-[10px] text-ink/45 tabular-nums">{timecode(sel.start, digits)} → {timecode(sel.end, digits)}</span>
+                  <span className="shrink-0 text-[10px] text-muted tabular-nums">{timecode(sel.start, digits)} → {timecode(sel.end, digits)}</span>
                   <Divider />
                   <Select label="Speed" value={sel.clip.speed} items={SPEEDS} onChange={speed => patch({ speed })} />
                   {media[sel.clip.mediaId].hasAudio && !sel.clip.muted && (
@@ -641,7 +633,7 @@ function App() {
                   )}
                 </div>
               ) : (
-                <span className="truncate pl-1 text-[10px] text-ink/40">
+                <span className="truncate pl-1 text-[10px] text-muted">
                   {range ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more` : duration ? 'Drag in the Select bar to pick a range · click the ruler to move the playhead · I / O mark in / out' : 'Add videos or audio to start editing'}
                 </span>
               )}
@@ -679,7 +671,7 @@ function App() {
               <>
                 <div className="grid gap-1">
                   <AlertDialog.Title className="truncate text-sm font-semibold">Remove {media[removing.id]?.name}?</AlertDialog.Title>
-                  <AlertDialog.Description className="text-[11px] text-ink/50">
+                  <AlertDialog.Description className="text-[11px] text-muted">
                     It's used by {removing.clips} {removing.clips === 1 ? 'clip' : 'clips'} on the timeline, which will be removed too. You can undo this.
                   </AlertDialog.Description>
                 </div>
@@ -707,10 +699,10 @@ function App() {
           <AlertDialog.Popup className={dialogPopup}>
             <div className="grid gap-1">
               <AlertDialog.Title className="text-sm font-semibold">Exporting video</AlertDialog.Title>
-              <AlertDialog.Description className="text-[11px] text-ink/50">Encoding on your device's GPU. Nothing is uploaded.</AlertDialog.Description>
+              <AlertDialog.Description className="text-[11px] text-muted">Encoding on your device's GPU. Nothing is uploaded.</AlertDialog.Description>
             </div>
             <Progress.Root className="grid grid-cols-[1fr_auto] gap-2" value={progress ?? 100}>
-              <Progress.Label className="text-[11px] font-medium text-ink/50">Progress</Progress.Label>
+              <Progress.Label className="text-[11px] font-medium text-muted">Progress</Progress.Label>
               <Progress.Value className="text-[11px] font-semibold tabular-nums" />
               <Progress.Track className="col-span-2 h-1.5 overflow-hidden rounded-xs bg-ink/10">
                 <Progress.Indicator className="block h-full rounded-xs bg-accent transition-[width] duration-150" />
@@ -734,7 +726,7 @@ class TimelineBoundary extends Component<{ onUndo: () => void; children: ReactNo
   render() {
     if (this.state.error === null) return this.props.children
     return (
-      <div className={`${card} grid h-60 shrink-0 place-content-center justify-items-center gap-3 p-4 text-center`}>
+      <div className="grid h-60 shrink-0 place-content-center justify-items-center gap-3 bg-surface p-4 text-center">
         <div className="grid gap-1">
           <span className="text-xs font-semibold">The timeline hit an error</span>
           <span className="text-[11px] text-ink/55">{this.state.error}. Your project is still here.</span>

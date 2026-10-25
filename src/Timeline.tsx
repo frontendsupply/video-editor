@@ -5,14 +5,13 @@ import { ContextMenu } from '@base-ui/react/context-menu'
 import { Menu } from '@base-ui/react/menu'
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
-import { Toggle } from '@base-ui/react/toggle'
-import { ArrowLeftFromLine, ArrowLeftRight, ArrowRightFromLine, ChevronRight, Crop, Download, Film, Layers, Magnet, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
+import { ArrowLeftFromLine, ArrowLeftRight, ArrowRightFromLine, ChevronRight, Crop, Download, Film, Layers, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
 import {
   addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, layoutVideo, moveClip, moveVideoClip, PEAKS_PER_SEC, slideVideoClip, projectDuration, removeClip, removeTrack,
-  snapPoints, snapShift, timecode, trimClip, trimVideoIn, unlinkAudio, updateClip,
+  snapPoints, snapShift, tickStep, timecode, trimClip, trimVideoIn, unlinkAudio, updateClip,
   type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type SplitTarget,
 } from './model'
-import { card, dialogBackdrop, dialogPopup, ExportItems, menuItem, pill, popup, Tip } from './ui'
+import { dialogBackdrop, dialogPopup, ExportItems, menuItem, pill, popup, Tip } from './ui'
 
 export type Range = { a: number; b: number }
 // dataTransfer type for dragging a media item from the bin onto a lane
@@ -40,27 +39,23 @@ type Props = {
   time: () => number // the playhead, which clips also snap to
   viewW: number // visible width of the lanes, reported through onViewW
   onViewW: (w: number) => void
-  snapping: boolean
-  onSnapping: (on: boolean) => void
   footer: ReactNode
   playheadRef: RefObject<HTMLDivElement | null>
   playheadLabelRef: RefObject<HTMLSpanElement | null>
   scrollRef: RefObject<HTMLDivElement | null>
 }
 
-const TICK_STEPS = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600]
-const MARGIN = 16 // left gutter (ml-4) so the playhead pill isn't clipped at 0s
 const HEAD = 112 // the track-name column (w-28), pinned on the left while the lanes scroll under it
 const ROOM = 160 // px past the last clip: the "+" tile and room to drag
 const FIT = 0.9 // fully zoomed out, the whole edit fills this much of the visible timeline
 // Pixels per second at which the whole edit fills FIT of the visible timeline: the zoom-out limit.
-export const zoomToFit = (viewW: number, duration: number) => (FIT * (viewW - MARGIN)) / duration
+export const zoomToFit = (viewW: number, duration: number) => (FIT * viewW) / duration
 const STEP = { overlay: 56 + 6, audio: 36 + 6 } // lane height + gap: how far a clip moves to change lane
 const lane = 'rounded-sm bg-ink/2.5'
 const mini = 'grid size-5 place-items-center rounded-xs text-ink/60 hover:bg-ink/5 hover:text-ink' // fits in the ruler
-const floating = 'pointer-events-auto absolute top-px flex gap-px rounded-sm bg-white p-px ring-1 ring-ink/15'
-const kbd = 'font-sans text-[10px] text-ink/40'
-const hint = 'pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[11px] whitespace-nowrap text-ink/30'
+const floating = 'pointer-events-auto absolute top-px flex gap-px rounded-sm bg-surface p-px ring-1 ring-line'
+const kbd = 'font-sans text-[10px] text-muted'
+const hint = 'pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-[11px] whitespace-nowrap text-muted'
 const SNAP_PX = 8 // edges within this many screen pixels lock together, at any zoom
 // The ruler and waveforms only render TILE-wide pieces near the visible part, so a 4-hour clip at full zoom
 // (millions of px wide) costs the same as a short one. Scrolling re-renders once per tile crossed.
@@ -102,16 +97,16 @@ export function Timeline(props: Props) {
     guideAt.current = at
     setGuide(at)
   }
-  // Mouse edits land on the zoom's grid (whole minutes zoomed far out, frames zoomed far in), and times show just the
-  // digits that grid needs.
-  const grid = gridFor(pps, project.fps)
-  const digits = digitsFor(grid)
-  // Shift needed to line any of `edges` up with the nearest point (snapping, off with the magnet); with nothing in reach,
-  // the first edge lands on the grid instead. Alt places freely.
+  // Mouse edits land on the ruler ticks (single frames while Alt is held), and times show just the digits those need.
+  const digits = digitsFor(gridFor(pps, project.fps, true))
+  // Shift needed to line any of `edges` up with the nearest point (Alt places freely); with nothing in reach, the first
+  // edge lands on the grid instead.
   const snapper = (points: number[]) => (edges: number[], ev: { altKey: boolean }) => {
-    const r = props.snapping && !ev.altKey ? snapShift(edges, points, SNAP_PX / pps) : { shift: 0, at: null }
+    const on = !ev.altKey
+    const r = on ? snapShift(edges, points, SNAP_PX / pps) : { shift: 0, at: null }
     showGuide(r.at)
-    return r.at !== null || ev.altKey ? r.shift : Math.round(edges[0] / grid) * grid - edges[0]
+    const grid = gridFor(pps, project.fps, on)
+    return r.at !== null ? r.shift : Math.round(edges[0] / grid) * grid - edges[0]
   }
   const [selecting, setSelecting] = useState(false)
   const [moving, setMoving] = useState<'a' | 'b'>('b') // the range edge being dragged
@@ -141,8 +136,8 @@ export function Timeline(props: Props) {
   const empty = !duration // nothing on the timeline yet: no playhead, ruler clicks or selecting
   useEffect(() => void (empty && setMarking(false)), [empty])
   // Past the last clip there's room for the + tile and dragging; fully zoomed out that's the 10% left, so nothing scrolls.
-  const width = Math.max(viewW - MARGIN, duration * pps + Math.min(ROOM, (1 - FIT) * (viewW - MARGIN)))
-  const step = TICK_STEPS.find(s => s * pps >= 90) ?? 1200
+  const width = Math.max(viewW, duration * pps + Math.min(ROOM, (1 - FIT) * viewW))
+  const step = tickStep(pps)
   const firstTick = Math.max(0, Math.floor(near[0] / (step * pps)))
   const ticks = Math.max(0, Math.min(Math.ceil(width / pps / step), Math.ceil(near[1] / (step * pps))) - firstTick)
 
@@ -385,7 +380,7 @@ export function Timeline(props: Props) {
       props.onPlace(id, target, t)
     },
   })
-  const dropRing = (key: string) => (dropKey === key ? 'ring-2 ring-accent bg-accent/10' : '')
+  const dropRing = (key: string) => (dropKey === key ? 'ring-2 ring-accent bg-accent/5' : '')
 
   const handles = (pl: Placed) => (
     <>
@@ -430,7 +425,7 @@ export function Timeline(props: Props) {
   const trackControls = (kind: LaneKind) => {
     const l = lastLane(kind)
     const noun = kind === 'overlay' ? 'video' : 'audio'
-    const btn = 'grid size-5 place-items-center rounded-sm text-ink/45 hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-30'
+    const btn = 'grid size-5 place-items-center rounded-sm text-muted hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
     return (
       <div className="flex h-full items-center justify-end gap-0.5 px-1.5">
         <Tip label={l < 0 ? `No added ${noun} track to remove` : `Remove ${trackName(kind, l)}`}>
@@ -470,14 +465,14 @@ export function Timeline(props: Props) {
           className={`group/bar relative h-full cursor-col-resize rounded-xs border border-dashed transition-colors ${range ? 'border-transparent bg-ink/3' : 'border-ink/15 bg-ink/2 hover:border-ink/35 hover:bg-ink/5'}`}
         >
           {!range && (
-            <span className="pointer-events-none sticky left-2 inline-flex h-full items-center gap-1.5 pl-2 text-[11px] whitespace-nowrap text-ink/40 transition-colors group-hover/bar:text-ink/70">
+            <span className="pointer-events-none sticky left-2 inline-flex h-full items-center gap-1.5 pl-2 text-[11px] whitespace-nowrap text-muted transition-colors group-hover/bar:text-ink/70">
               <ArrowLeftRight size={12} /> Drag here to select a range
             </span>
           )}
           {range && (
             <div
               onPointerDown={e => dragRange(e, 'both')}
-              className="absolute inset-y-0 z-16 flex cursor-grab items-center justify-center overflow-hidden rounded-xs bg-accent px-2.5 text-[10px] font-semibold text-ink tabular-nums active:cursor-grabbing"
+              className="absolute inset-y-0 z-16 flex cursor-grab items-center justify-center overflow-hidden rounded-xs bg-accent px-2.5 text-[10px] font-semibold text-white tabular-nums active:cursor-grabbing"
               style={{ left: range.a * pps, width: Math.max(2, (range.b - range.a) * pps) }}
             >
               <span className="pointer-events-none truncate">{timecode(range.a, digits)} – {timecode(range.b, digits)} · {lengthLabel(range.b - range.a, digits)}</span>
@@ -485,9 +480,9 @@ export function Timeline(props: Props) {
                 <span
                   key={edge}
                   onPointerDown={e => dragRange(e, edge)}
-                  className={`absolute inset-y-0 grid w-2 cursor-ew-resize place-items-center hover:bg-ink/10 ${edge === 'a' ? 'left-0' : 'right-0'}`}
+                  className={`absolute inset-y-0 grid w-2 cursor-ew-resize place-items-center hover:bg-white/15 ${edge === 'a' ? 'left-0' : 'right-0'}`}
                 >
-                  <span className="h-3 w-0.5 rounded-xs bg-ink/45" />
+                  <span className="h-3 w-0.5 rounded-xs bg-white/70" />
                 </span>
               ))}
             </div>
@@ -495,7 +490,7 @@ export function Timeline(props: Props) {
           {range && !selecting && (
             <div
               onPointerDown={e => e.stopPropagation()}
-              className="absolute inset-y-0 z-25 ml-1 flex items-center gap-px rounded-sm bg-white px-px ring-1 ring-ink/15"
+              className="absolute inset-y-0 z-25 ml-1 flex items-center gap-px rounded-sm bg-surface px-px ring-1 ring-line"
               style={{ left: range.b * pps }}
             >
               <Tip label="Delete selected region (⌫)">
@@ -543,7 +538,7 @@ export function Timeline(props: Props) {
                 <ClipBody pl={pl} media={media[pl.clip.mediaId]} width={w} view={nearClip(pl)} />
                 {handles(pl)}
                 {slide?.id === pl.clip.id && (
-                  <span className="pointer-events-none absolute top-1/2 left-2 z-10 -translate-y-1/2 rounded-sm bg-white px-1.5 py-0.5 text-[10px] whitespace-nowrap tabular-nums ring-1 ring-ink/15">
+                  <span className="pointer-events-none absolute top-1/2 left-2 z-10 -translate-y-1/2 rounded-sm bg-surface px-1.5 py-0.5 text-[10px] whitespace-nowrap tabular-nums ring-1 ring-line">
                     Offset: {timecode(slide.start, digits)}
                   </span>
                 )}
@@ -566,7 +561,7 @@ export function Timeline(props: Props) {
             onPointerDown={e => e.stopPropagation()}
             onClick={props.onAdd}
             data-cuelume-open=""
-            className="ml-1 grid w-16 shrink-0 place-items-center rounded-md border border-dashed border-ink/20 text-ink/40 transition-colors hover:border-ink/40 hover:text-ink"
+            className="ml-1 grid w-16 shrink-0 place-items-center rounded-md border border-dashed border-ink/20 text-muted transition-colors hover:border-ink/40 hover:text-ink"
             aria-label="Add media"
           >
             <Plus size={16} />
@@ -609,25 +604,27 @@ export function Timeline(props: Props) {
   ]
 
   return (
-    <div className={`${card} flex shrink-0 flex-col overflow-hidden select-none`} style={{ height: props.height }}>
+    <div className="flex shrink-0 flex-col overflow-hidden bg-surface select-none" style={{ height: props.height }}>
       {/* One scroll area for both directions: the track names stay pinned on the left, and the scrollbars sit in their
           own thin strips along the bottom and right edges, outside the tracks, so they're always in reach. */}
       <ScrollArea.Root className="relative min-h-0 flex-1 pr-2 pb-2">
+        {/* the track-name column's background runs to the bottom however tall the panel is */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-28 border-r border-line bg-canvas" />
         <ScrollArea.Viewport ref={props.scrollRef} className="h-full overscroll-none">
           <ScrollArea.Content className="flex">
-          <div className="sticky left-0 z-40 w-28 shrink-0 border-r border-ink/6 bg-white pb-8 text-[11px] font-medium text-ink/60">
-            <div className="flex h-6 items-center border-b border-ink/6 px-2.5 text-[10px] tracking-wide text-ink/40 uppercase">Timeline</div>
-            {rows.map(r => <div key={r.key} className={`${r.size} ${r.band ? 'border-y border-ink/6' : ''}`}>{r.header}</div>)}
+          <div className="sticky left-0 z-40 w-28 shrink-0 border-r border-line bg-canvas pb-8 text-[11px] font-medium text-ink/60">
+            <div className="flex h-6 items-center border-b border-line px-2.5 text-[10px] tracking-wide text-muted uppercase">Timeline</div>
+            {rows.map(r => <div key={r.key} className={`${r.size} ${r.band ? 'border-y border-line' : ''}`}>{r.header}</div>)}
           </div>
 
           <ContextMenu.Root>
-          <ContextMenu.Trigger ref={contentRef} className={`relative ml-4 shrink-0 pb-8 ${empty ? '' : 'cursor-text'}`} style={{ width }} onPointerDown={scrub} onContextMenu={openMenu}>
+          <ContextMenu.Trigger ref={contentRef} className={`relative shrink-0 pb-8${empty ? '' : 'cursor-text'}`} style={{ width }} onPointerDown={scrub} onContextMenu={openMenu}>
             {/* ruler: timecode labels + minor ticks every fifth of a step. Click or drag it to move the playhead. */}
             <div
               data-ruler
               onPointerMove={hover}
               onPointerLeave={() => hover(null)}
-              className={`relative h-6 overflow-hidden border-b border-ink/6 ${empty ? '' : 'cursor-pointer'}`}
+              className={`relative h-6 overflow-hidden border-b border-line ${empty ? '' : 'cursor-pointer'}`}
               style={{
                 backgroundImage: `repeating-linear-gradient(to right, rgb(29 29 32 / 0.14) 0 1px, transparent 1px ${(step * pps) / 5}px)`,
                 backgroundSize: '100% 5px',
@@ -636,33 +633,33 @@ export function Timeline(props: Props) {
               }}
             >
               {Array.from({ length: ticks }, (_, k) => firstTick + k).map(i => (
-                <span key={i} className="absolute top-0 bottom-0 border-l border-ink/20 pt-1 pl-1 text-[10px] text-ink/40 tabular-nums" style={{ left: i * step * pps }}>
+                <span key={i} className="absolute top-0 bottom-0 border-l border-ink/20 pt-1 pl-1 text-[10px] text-muted tabular-nums" style={{ left: i * step * pps }}>
                   {timecode(i * step, step < 1 ? 1 : 0)}
                 </span>
               ))}
             </div>
 
             {rows.map(r => (
-              <div key={r.key} className={`${r.size} ${r.band ? '-ml-4 border-y border-ink/6' : ''}`} style={r.band ? { width: width + MARGIN } : undefined}>
+              <div key={r.key} className={`${r.size} ${r.band ? 'border-y border-line' : ''}`}>
                 {r.lane}
               </div>
             ))}
 
             {/* snap guide: the exact time a dragged edge has locked onto */}
-            {guide !== null && <div className="pointer-events-none absolute top-0 bottom-0 z-25 w-px -ml-px bg-amber-500" style={{ left: guide * pps }} />}
+            {guide !== null && <div className="pointer-events-none absolute top-0 bottom-0 z-25 w-px -ml-px bg-accent" style={{ left: guide * pps }} />}
 
             {/* time under the mouse on the ruler */}
-            <span ref={hoverRef} className="pointer-events-none absolute top-6.5 z-30 hidden -translate-x-1/2 rounded-sm bg-white px-1.5 py-0.5 text-[10px] whitespace-nowrap tabular-nums ring-1 ring-ink/15" />
+            <span ref={hoverRef} className="pointer-events-none absolute top-6.5 z-30 hidden -translate-x-1/2 rounded-sm bg-surface px-1.5 py-0.5 text-[10px] whitespace-nowrap tabular-nums ring-1 ring-line" />
 
             {/* selected time range tinted across all tracks and the ruler; Start/End beside the moving edge while dragging */}
             {range && (
               <div
-                className="pointer-events-none absolute top-0 bottom-0 z-15 border-x border-accent bg-accent/20"
+                className="pointer-events-none absolute top-0 bottom-0 z-15 border-x border-accent bg-accent/8"
                 style={{ left: range.a * pps, width: (range.b - range.a) * pps }}
               >
-                <div className="h-6 bg-accent/45" />
+                <div className="h-6 bg-accent/25" />
                 {selecting && (
-                  <span className={`absolute top-13 grid rounded-sm bg-white px-1.5 py-1 text-[10px] leading-snug whitespace-nowrap tabular-nums ring-1 ring-ink/15 ${moving === 'b' ? 'left-full ml-1.5' : 'right-full mr-1.5'}`}>
+                  <span className={`absolute top-13 grid rounded-sm bg-surface px-1.5 py-1 text-[10px] leading-snug whitespace-nowrap tabular-nums ring-1 ring-line ${moving === 'b' ? 'left-full ml-1.5' : 'right-full mr-1.5'}`}>
                     <span>Selection Start: {timecode(range.a, digits)}</span>
                     <span>Selection End: {timecode(range.b, digits)}</span>
                   </span>
@@ -673,7 +670,7 @@ export function Timeline(props: Props) {
             {/* playhead: red line, time pill in the ruler, split button at its foot (kept in view when the tracks are taller
                 than the timeline); moved by the player through the DOM */}
             <div ref={props.playheadRef} className={`pointer-events-none absolute top-0 bottom-0 left-0 z-20 flex w-0.5 -ml-px flex-col justify-end bg-playhead ${empty ? 'hidden' : ''}`}>
-              <span ref={props.playheadLabelRef} style={{ transform: 'translateX(var(--nudge, 0px))' }} className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-white px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-playhead tabular-nums ring-1 ring-playhead/25">
+              <span ref={props.playheadLabelRef} style={{ transform: 'translateX(var(--nudge, 0px))' }} className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-surface px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-playhead tabular-nums ring-1 ring-playhead/25">
                 0:00:00.0
               </span>
               {/* after a click: mark the selection start or end right here */}
@@ -702,7 +699,7 @@ export function Timeline(props: Props) {
                     onPointerDown={e => e.stopPropagation()}
                     onClick={() => props.onSplit('all', true)}
                     aria-label="Split all tracks at playhead"
-                    className="pointer-events-auto sticky bottom-1 mb-1 ml-1 grid size-6 shrink-0 place-items-center self-start rounded-sm bg-white text-ink/70 ring-1 ring-ink/15 hover:text-ink hover:ring-ink/30"
+                    className="pointer-events-auto sticky bottom-1 mb-1 ml-1 grid size-6 shrink-0 place-items-center self-start rounded-sm bg-surface text-ink/70 ring-1 ring-line hover:text-ink hover:ring-ink/30"
                   >
                     <Scissors size={12} />
                   </button>
@@ -726,7 +723,7 @@ export function Timeline(props: Props) {
                     </ContextMenu.Item>
                     <ContextMenu.SubmenuRoot>
                       <ContextMenu.SubmenuTrigger className={`${menuItem} data-popup-open:bg-ink/6`}>
-                        <span className="flex items-center gap-2"><Download size={13} /> Export Selected Region</span><ChevronRight size={12} className="text-ink/40" />
+                        <span className="flex items-center gap-2"><Download size={13} /> Export Selected Region</span><ChevronRight size={12} className="text-muted" />
                       </ContextMenu.SubmenuTrigger>
                       <ContextMenu.Portal>
                         <ContextMenu.Positioner className="z-20 outline-none" sideOffset={4}>
@@ -775,19 +772,8 @@ export function Timeline(props: Props) {
           <ScrollArea.Thumb className="w-full rounded-xs bg-ink/25 transition-colors hover:bg-ink/45 active:bg-ink/50" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
-      <div className="flex h-8 shrink-0 items-center gap-1 border-t border-ink/6 px-2">
+      <div className="flex h-8 shrink-0 items-center gap-1 border-t border-line bg-chrome px-2">
         {props.footer}
-        <Tip label={props.snapping ? 'Snapping on (N). Hold ⌥ to drag freely' : 'Snapping off (N)'}>
-          <Toggle
-            pressed={props.snapping}
-            onPressedChange={props.onSnapping}
-            data-cuelume-toggle=""
-            aria-label="Snapping"
-            className="ml-1 grid size-7 place-items-center rounded-md text-ink/45 hover:bg-ink/5 hover:text-ink data-pressed:bg-accent/30 data-pressed:text-ink"
-          >
-            <Magnet size={14} />
-          </Toggle>
-        </Tip>
       </div>
 
       <AlertDialog.Root open={!!confirm?.open} onOpenChange={open => !open && setConfirm(c => c && { ...c, open: false })}>
@@ -798,7 +784,7 @@ export function Timeline(props: Props) {
               <>
                 <div className="grid gap-1">
                   <AlertDialog.Title className="text-sm font-semibold">Remove {trackName(confirm.kind, confirm.lane)}?</AlertDialog.Title>
-                  <AlertDialog.Description className="text-[11px] text-ink/50">
+                  <AlertDialog.Description className="text-[11px] text-muted">
                     It has {confirm.clips} {confirm.clips === 1 ? 'clip' : 'clips'}, which will be removed with the track. You can undo this.
                   </AlertDialog.Description>
                 </div>
@@ -826,7 +812,7 @@ export function Timeline(props: Props) {
 // A video clip: repeated thumbnail, its sound in a strip underneath (until unlinked), name.
 function ClipBody({ pl, media, width, view }: { pl: Placed; media: Media; width: number; view: [number, number] }) {
   return (
-    <div className="relative flex h-full flex-col gap-0.5 overflow-hidden rounded-md bg-white p-1 ring-1 ring-ink/10 group-data-selected:ring-2 group-data-selected:ring-accent">
+    <div className="relative flex h-full flex-col gap-0.5 overflow-hidden rounded-md bg-surface p-1 ring-1 ring-line group-data-selected:ring-2 group-data-selected:ring-accent">
       <div
         className="min-h-0 flex-1 rounded-xs bg-ink/5 bg-size-[auto_100%] bg-repeat-x"
         style={{ backgroundImage: media.thumb ? `url(${media.thumb})` : undefined }}
@@ -844,14 +830,14 @@ function ClipBody({ pl, media, width, view }: { pl: Placed; media: Media; width:
   )
 }
 
-// Trim handles: white on hover, yellow on the selected clip.
+// Trim handles: light on hover, red on the selected clip.
 function Handle({ side, onPointerDown }: { side: 'l' | 'r'; onPointerDown: (e: ReactPointerEvent) => void }) {
   return (
     <div
       onPointerDown={onPointerDown}
-      className={`absolute top-1/2 z-10 grid h-7 w-2.5 -translate-y-1/2 cursor-ew-resize place-items-center rounded-xs bg-white opacity-0 ring-1 ring-ink/15 group-data-selected:bg-accent group-data-selected:ring-accent transition-opacity group-hover:opacity-100 group-data-selected:opacity-100 ${side === 'l' ? 'left-0' : 'right-0'}`}
+      className={`absolute top-1/2 z-10 grid h-7 w-2.5 -translate-y-1/2 cursor-ew-resize place-items-center rounded-xs bg-surface opacity-0 ring-1 ring-line group-data-selected:bg-accent group-data-selected:ring-accent transition-opacity group-hover:opacity-100 group-data-selected:opacity-100 ${side === 'l' ? 'left-0' : 'right-0'}`}
     >
-      <span className="h-3 w-px bg-ink/40" />
+      <span className="h-3 w-px bg-ink/40 group-data-selected:bg-white" />
     </div>
   )
 }
