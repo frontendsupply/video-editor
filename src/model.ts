@@ -68,10 +68,13 @@ export function timecode(t: number, digits: 0 | 1 | 3 = 3) {
   return digits ? `${base}.${String(total % scale).padStart(digits, '0')}` : base
 }
 
-// The time grid mouse edits land on at a zoom (pixels per second): the finest of a frame, 0.1 s, 0.5 s, 1 s, 5 s, …
-// that's at least 3 px wide. Zoomed out, the extra digits would only be noise from the mouse position; milliseconds
-// (frames) come in once a frame is wide enough to aim at.
-export const gridFor = (pps: number, fps: number) => [1 / fps, 0.1, 0.5, 1, 5, 10, 30, 60, 300, 600].find(u => u * pps >= 3) ?? 3600
+// Seconds between ruler labels at a zoom (pixels per second): at least 90 px apart, with a minor tick every fifth.
+export const tickStep = (pps: number) => [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600].find(s => s * pps >= 90) ?? 1200
+// The time grid mouse edits land on at a zoom. Snapping on: the ruler's minor ticks, so times come out round. Off: the
+// finest of a frame, 0.1 s, 0.5 s, 1 s, 5 s, … that's at least 3 px wide. Zoomed out, the extra digits would only be
+// noise from the mouse position; milliseconds (frames) come in once a frame is wide enough to aim at.
+export const gridFor = (pps: number, fps: number, snapping = false) =>
+  snapping ? tickStep(pps) / 5 : ([1 / fps, 0.1, 0.5, 1, 5, 10, 30, 60, 300, 600].find(u => u * pps >= 3) ?? 3600)
 // Decimals worth showing for times on that grid.
 export const digitsFor = (unit: number): 0 | 1 | 3 => (unit >= 1 ? 0 : unit >= 0.1 ? 1 : 3)
 // A length: seconds under a minute ("3.28s"), else h:mm:ss.

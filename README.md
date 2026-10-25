@@ -36,7 +36,7 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 - `src/export.ts`: MP4 export (video render, audio mix, pitch-preserving speed).
 - `src/main.tsx`, `src/Timeline.tsx`: UI.
 - `src/ui.tsx`: UI primitives (Select, Segmented, Slider, Tooltip, Toast, export quality list) and shared class strings.
-- `src/styles.css`: theme tokens and base styles; `src/fonts`: the variable UI font.
+- `src/styles.css`: theme tokens (ink, a muted color that's the lightest text, accent) and base styles; `src/fonts`: the variable UI font; `public/`: favicon and app icons.
 
 ## Features
 
@@ -46,7 +46,7 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 **Tracks**: Video 1 is the magnetic main track: clips follow each other, plus any gap you leave. Drag a Video 1 clip sideways to slide it and everything after it (the gap opens in front of it; an Offset readout shows its new start); drag it left until its middle passes the clip in front and it's carried alone, dropping in where you let go (at that time if there's room, pushing later clips only if they'd overlap). Gaps play and export as black. Every video clip shows its own sound as a waveform strip under its thumbnails, so the sound moves, trims, splits and deletes with it. Right-click a clip → **Unlink audio** to move that sound into its own clip on the first free audio lane (the video clip goes silent); from then on they edit separately. The **− +** row under each group removes or adds a track: Video 2, 3, … are overlay tracks drawn on top of the ones below (in Fit mode their bars show the layer underneath), and Audio 1, 2, … hold music, voiceover and unlinked sound. Drag media from the bin onto any lane, drag clips up or down to change lanes (between Video 1 and the overlay tracks too: leaving Video 1 closes up the clip's length, entering it slots the clip in). **−** removes the last added track and asks first (alert dialog) if it still has clips; Video 1 and Audio 1 always stay. Waveforms are read once per file right after import, in Web Workers (long files as parallel slices, one per spare core: a 4-hour video takes ~5 s); until done the strip shimmers, the bars fill in and a thin bar fills along the bottom of the file's thumbnail in the bin.
 
-**Snapping**: while you move or trim a clip, select a range or drop from the bin, edges within 8 px lock onto other clips' starts and ends (on every track), the playhead and 0:00, and an amber guide line shows the exact time. With nothing to snap to, edits land on a grid that follows the zoom (whole minutes when far out, then seconds, tenths, and single frames when zoomed in), and timeline times show only the digits that grid can place. Toggle snapping with the magnet in the timeline footer or **N**; hold **⌥ Alt** to drag freely.
+**Snapping**: while you move or trim a clip, select a range or drop from the bin, edges within 8 px lock onto other clips' starts and ends (on every track), the playhead and 0:00, and a guide line shows the exact time. With nothing to snap to, edits land on the ruler's small ticks, so times come out round at any zoom (tenths zoomed in, whole minutes far out), and timeline times show only the digits those ticks need. Hold **⌥ Alt** while dragging to place freely, down to single frames when zoomed in.
 
 **Splitting**: the scissors at the playhead's foot, or the Split ▾ button under the preview (split selected clip / all tracks / Video 1 / overlay tracks / audio tracks). With a range selected, splits happen at both of its edges.
 
@@ -62,7 +62,6 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 | Home / End | Go to start / end |
 | ⌘/Ctrl+Z, ⇧⌘/Ctrl+Z | Undo, redo |
 | Esc | Clear selection |
-| N | Snapping on / off (hold ⌥ while dragging to bypass) |
 
 ## Roadmap
 

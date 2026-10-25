@@ -11,10 +11,20 @@
 
 @theme {
   --font-sans: 'Geist', system-ui, sans-serif;
-  --color-canvas: #f9fafc; /* page */
-  --color-ink: #1d1d20; /* text */
-  --color-accent: #ffd50b; /* brand: export, selection, fills */
-  --color-playhead: #ff3b30;
+  /* Grey chrome, panels edge to edge split by 1px lines, square corners */
+  --color-chrome: #e6e6e6; /* header and status bar */
+  --color-canvas: #f1f1f1; /* side panels and panel headers (media bin, track names) */
+  --color-surface: #fbfbfb; /* content: the preview and the timeline lanes */
+  --color-line: #d9d9d9; /* 1px lines between panels */
+  --color-ink: #111111; /* text */
+  --color-muted: #0000008c; /* the lightest text (hints, labels, times): 55% black, still readable at 10-11 px */
+  --color-accent: #ff2900; /* brand (the app icon red): selection, fills */
+  --color-playhead: #ff2900;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
 }
 
 @layer base {

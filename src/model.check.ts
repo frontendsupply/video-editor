@@ -155,6 +155,9 @@ eq([timecode(2.034), timecode(3725.5), timecode(59.9996), timecode(65, 0), timec
 // zoom grid: frames only once they're wide enough to aim at
 eq([gridFor(0.06, 30), gridFor(1, 30), gridFor(10, 30), gridFor(40, 30), gridFor(200, 30)], [60, 5, 0.5, 0.1, 1 / 30], 'grid by zoom')
 eq([digitsFor(60), digitsFor(0.5), digitsFor(1 / 30)], [0, 1, 3], 'digits by grid')
+// Snapping on: edits land on the ruler's minor ticks (labels 1 s apart at 115 px/s, ticks every 0.2 s), never frames.
+eq([gridFor(115, 30, true), gridFor(200, 30, true), gridFor(1, 30, true)], [0.2, 0.1, 24], 'snap grid is the ruler ticks')
+eq(digitsFor(gridFor(115, 30, true)), 1, 'snapped times show tenths')
 eq([lengthLabel(3.284, 3), lengthLabel(3.284, 1), lengthLabel(5520, 0)], ['3.28s', '3.3s', '1:32:00'], 'length label')
 
 console.log('model ok')
