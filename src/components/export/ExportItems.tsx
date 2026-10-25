@@ -1,11 +1,9 @@
 // The export menu's contents, shared by the header's Export and the selected range's export.
 import { Menu } from '@base-ui/react/menu'
 import { play } from 'cuelume'
-import { EXPORT_PRESETS, exportSize, outputSize, type ExportPreset, type Media, type Project } from '@/lib/model'
+import { EXPORT_PRESETS, FRAME_RATES, exportSize, outputSize, type ExportPreset, type Media, type Project } from '@/lib/model'
 import { cn } from '@/lib/utils'
 import { menuItem, menuSeparator } from '@/components/ui'
-
-const FPS = [24, 25, 30, 60]
 
 // The export menu's contents, for the header Export and the selection's: frame rate in one row (stays open while you
 // pick), then the sizes to export at, each with its output size (picking one exports).
@@ -30,7 +28,7 @@ export function ExportItems(props: {
       >
         <span className="text-muted">Frame rate</span>
         <div className="flex gap-px">
-          {FPS.map(fps => (
+          {FRAME_RATES.map(fps => (
             <Menu.RadioItem
               key={fps}
               value={fps}

@@ -13,6 +13,11 @@ export function outputSize(p: Project, media: Record<string, { width: number; he
   return m ? [m.width & ~1, m.height & ~1] : [1920, 1080] // encoders want even sizes
 }
 
+// The frame rates offered. A new project takes the one nearest its first video's, so that a plain cut of it can be
+// copied as it is (see plainCuts) instead of every frame being re-encoded.
+export const FRAME_RATES = [24, 25, 30, 60]
+export const nearestRate = (fps: number) => FRAME_RATES.reduce((a, b) => (Math.abs(b - fps) < Math.abs(a - fps) ? b : a))
+
 // Export quality: Original keeps the full output size; the rest cap the short edge and lower the bitrate.
 
 export const EXPORT_PRESETS: ExportPreset[] = [

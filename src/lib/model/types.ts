@@ -13,6 +13,7 @@ export type Media = {
   height: number
   hasVideo: boolean
   hasAudio: boolean
+  fps?: number // video frames per second (measured over the first ~120 frames)
   thumb?: string
   peaks?: Float32Array // waveform: loudest sample per 1/PEAKS_PER_SEC s, filled in after import (-1 = not read yet)
   peaksDone?: number // share of the audio read into peaks, 0..1 (1 also when reading failed)

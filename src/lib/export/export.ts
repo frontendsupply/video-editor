@@ -22,10 +22,13 @@ export async function exportProject(
   const worker = new Worker(new URL('./export.worker.ts', import.meta.url), { type: 'module' })
   const send = (m: ToWorker, transfer: Transferable[] = []) => worker.postMessage(m, { transfer })
   const encoded = { t: 0 } // how far the video has got, so the audio mix keeps pace
+  // Progress is the slower of the two: a copied video can be done long before a long mix is.
+  const share = { video: 0, audio: audio ? 0 : 1 }
+  const report = () => onProgress(Math.min(share.video, share.audio))
   let next = () => {}
   const done = new Promise<{ blob: Blob | null; lossless: boolean }>((ok, fail) => {
     worker.onmessage = ({ data }: MessageEvent<FromWorker>) => {
-      if (data.type === 'progress') (encoded.t = data.t), onProgress(data.fraction)
+      if (data.type === 'progress') (encoded.t = data.t), (share.video = data.fraction), report()
       else if (data.type === 'audio-ok') next()
       else if (data.type === 'done') ok({ blob: data.buffer && new Blob([data.buffer], { type: 'video/mp4' }), lossless: data.lossless })
       else fail(signal.aborted ? signal.reason : new Error(data.message))
@@ -41,7 +44,7 @@ export async function exportProject(
     // Audio mixes while the video encodes, a chunk at a time; each chunk waits for the encoder to take the last one.
     const chunk = (buf: AudioBuffer, timestamp: number) =>
       new Promise<void>(ok => {
-        next = ok
+        next = () => ((share.audio = (timestamp + buf.duration) / projectDuration(p)), report(), ok())
         const data = new Float32Array(buf.length * 2) // planar stereo
         data.set(buf.getChannelData(0))
         data.set(buf.getChannelData(1), buf.length)
