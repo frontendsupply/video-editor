@@ -474,7 +474,7 @@ function App() {
     play('loading')
     try {
       const t0 = performance.now()
-      const blob = await exportProject(region ? cropRange(project, region.a, region.b) : project, media, file, f => {
+      const { blob, lossless } = await exportProject(region ? cropRange(project, region.a, region.b) : project, media, file, f => {
         const pct = Math.floor(f * 100)
         if (pct !== last) setProgress((last = pct))
       }, ac.signal, preset, project)
@@ -487,7 +487,8 @@ function App() {
       }
       const secs = ((performance.now() - t0) / 1000).toFixed(1)
       play('success', { emphasis: 'strong' })
-      toast.add({ title: 'Export finished', description: `${file?.name ?? 'video.mp4'} · ${preset.label} · ${fmt(duration)} rendered in ${secs}s` })
+      const how = lossless ? `in ${secs}s · video copied without re-encoding` : `rendered in ${secs}s`
+      toast.add({ title: 'Export finished', description: `${file?.name ?? 'video.mp4'} · ${preset.label} · ${fmt(duration)} ${how}` })
     } catch (e) {
       if (ac.signal.aborted) play('close')
       else {

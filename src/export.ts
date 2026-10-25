@@ -6,6 +6,7 @@ import type { ExportMedia, FromWorker, ToWorker } from './export.worker'
 // Renders the timeline to MP4 using the GPU's hardware encoder (WebCodecs). The video, muxing and file writing run in
 // a worker (export.worker.ts), so the editor stays responsive; the audio mix stays here, since it needs Web Audio.
 // With a file handle the output streams straight to disk; otherwise it's built in memory and returned as a Blob.
+// `lossless`: the video was copied from the files as it was (see export.worker.ts), not re-encoded.
 export async function exportProject(
   p: Project,
   media: Record<string, Media>,
@@ -14,17 +15,17 @@ export async function exportProject(
   signal: AbortSignal,
   preset: ExportPreset,
   frame = p, // the project whose frame size to use: the whole edit, when exporting part of it
-): Promise<Blob | null> {
+): Promise<{ blob: Blob | null; lossless: boolean }> {
   const audio = [...p.video, ...p.overlay, ...p.audio].some(c => media[c.mediaId].hasAudio && c.volume > 0 && !c.muted)
   const worker = new Worker(new URL('./export.worker.ts', import.meta.url), { type: 'module' })
   const send = (m: ToWorker, transfer: Transferable[] = []) => worker.postMessage(m, { transfer })
   const encoded = { t: 0 } // how far the video has got, so the audio mix keeps pace
   let next = () => {}
-  const done = new Promise<Blob | null>((ok, fail) => {
+  const done = new Promise<{ blob: Blob | null; lossless: boolean }>((ok, fail) => {
     worker.onmessage = ({ data }: MessageEvent<FromWorker>) => {
       if (data.type === 'progress') (encoded.t = data.t), onProgress(data.fraction)
       else if (data.type === 'audio-ok') next()
-      else if (data.type === 'done') ok(data.buffer && new Blob([data.buffer], { type: 'video/mp4' }))
+      else if (data.type === 'done') ok({ blob: data.buffer && new Blob([data.buffer], { type: 'video/mp4' }), lossless: data.lossless })
       else fail(signal.aborted ? signal.reason : new Error(data.message))
     }
     worker.onerror = e => fail(new Error(e.message))
@@ -45,8 +46,7 @@ export async function exportProject(
         send({ type: 'audio', data, timestamp }, [data.buffer])
       })
     const mixed = audio && mixAudio(p, media, projectDuration(p), chunk, signal, encoded).then(() => send({ type: 'audio-end' }))
-    const [blob] = await Promise.all([done, mixed])
-    return blob
+    return (await Promise.all([done, mixed]))[0]
   } finally {
     signal.removeEventListener('abort', cancel)
     worker.terminate() // after an error or cancel too: an uncommitted file stream is discarded with it

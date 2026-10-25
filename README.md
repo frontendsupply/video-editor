@@ -21,6 +21,7 @@ Browser smoke test (generates clips, edits, exports, verifies the MP4): with the
 | Playback loop outside React | Playhead and clock are written straight to the DOM: zero re-renders while playing |
 | Shared `drawFrame()` | What you see in the preview is exactly what you export |
 | Decode straight to output size | 4K sources stay cheap when exporting 1080p |
+| Lossless copy when nothing needs re-encoding | Plain cuts of files that share one encoding export at disk speed, bit for bit |
 | Export runs in a Web Worker (video decode, draw, encode, mux, file writes) | The editor stays responsive while exporting; only the audio mix, which needs Web Audio, stays on the page |
 | Audio mixed (`OfflineAudioContext`) in 30-second chunks, in step with the video encoding | Export time ≈ video encode time, and memory stays flat however long the edit is |
 | Stream to disk (`showSaveFilePicker`, Chrome/Edge) | Long exports don't fill RAM; cancel discards the partial file |
@@ -52,6 +53,8 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 **Snapping**: while you move or trim a clip, select a range or drop from the bin, edges within 8 px lock onto other clips' starts and ends (on every track), the playhead and 0:00, and a guide line shows the exact time. With nothing to snap to, edits land on the ruler's small ticks, so times come out round at any zoom (tenths zoomed in, whole minutes far out), and timeline times show only the digits those ticks need. Hold **⌥ Alt** while dragging to place freely, down to single frames when zoomed in.
 
+**Lossless export**: when the video only needs copying, it's copied as it is, packet for packet: no decoding, no re-encoding, no quality lost, and it takes about as long as reading the files. That's when the edit is Video 1 only (no overlays, no speed changes, no gaps, and the video lasts as long as the sound), its files share one encoding, at the export's size and frame rate (Original or 1080p), and every piece starts on a key frame of its file (most cameras put one every second or two; a file's start always is one). Pieces can end anywhere, or only at the file's end for files with B-frames. So joining camera files, putting music under untouched video, or trimming the ends of clips all export losslessly; the sound is still mixed and encoded as usual. Anything else is rendered, and the finished message says which happened.
+
 **Clip Preview**: double-click a file in the bin (or right-click → Open in Clip Preview) to play it on its own, in a tab next to the sequence. Mark the part you want with In/Out (**I** / **O**, the buttons, or by dragging the marks on the bar; the waveform shows there too), then **Add to timeline** (video goes to the end of Video 1, audio at the playhead) or **Save clip** to keep that part as a new clip in the bin, so one long file splits into the pieces you need. Saved clips go on the timeline as just their part (and can still be trimmed out to the whole file), and open in Clip Preview with their marks. Space plays and stops at the Out point (press it there to play the part again); ← / → step frames, Home / End jump to In / Out.
 
 **Saving**: the project saves itself as you edit (IndexedDB, on this device), along with each file's thumbnail and waveform; the video and audio stay where they are on disk. Reload or reopen the tab and it's back. Files added with **Add media** or dropped in Chromium browsers keep a handle to the file on disk: if the browser still allows reading them the project comes back by itself, otherwise one click on **Reconnect files** asks once. Files without a handle (other browsers, or moved on disk) are picked or dropped again and matched by name and size. **Start fresh** drops the saved project, and **New project** (the first button in the header) clears the current one; files on disk are never touched.
@@ -75,6 +78,7 @@ Import (drag-drop/picker) into a tabbed media bin. Each file's checkbox shows wh
 
 Done lately:
 
+- **Lossless fast path**: plain cuts of files that share one encoding are copied packet for packet, no re-encoding.
 - **Export in a Worker**: video frames, encoding, muxing and file writes run off the page, so the editor stays responsive.
 - **Long exports**: the audio mix renders in 30-second chunks that keep pace with the video, decoding only each clip's slice, so hour-long exports use as little memory as short ones.
 - **Clip Preview**: mark In/Out on one file, add that part to the timeline or save it as a bin clip.
@@ -90,5 +94,4 @@ Done lately:
 Next:
 
 1. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
-2. **Lossless fast path**: untouched stretches copy packets without re-encoding.
-3. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
+2. **Software decoding fallback**, only for codecs the browser can't decode (e.g. some AVI/MKV).
