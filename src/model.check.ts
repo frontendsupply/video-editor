@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName,
   type Clip, type Project,
 } from './model.ts'
 
@@ -159,5 +159,14 @@ eq([digitsFor(60), digitsFor(0.5), digitsFor(1 / 30)], [0, 1, 3], 'digits by gri
 eq([gridFor(115, 30, true), gridFor(200, 30, true), gridFor(1, 30, true)], [0.2, 0.1, 24], 'snap grid is the ruler ticks')
 eq(digitsFor(gridFor(115, 30, true)), 1, 'snapped times show tenths')
 eq([lengthLabel(3.284, 3), lengthLabel(3.284, 1), lengthLabel(5520, 0)], ['3.28s', '3.3s', '1:32:00'], 'length label')
+
+// Track names: renamed ones stick, empty or default goes back, and a removed track takes its name along.
+{
+  const p = renameTrack(renameTrack(renameTrack({ ...emptyProject(), overlayTracks: 2, audioTracks: 2 }, 'o0', ' B-roll '), 'o1', 'Titles'), 'a1', 'Voice')
+  eq(['v1', 'o0', 'o1', 'a0', 'a1'].map(k => trackName(p, k)), ['Video 1', 'B-roll', 'Titles', 'Audio 1', 'Voice'], 'track names')
+  eq([renameTrack(p, 'o0', '  ').names, renameTrack(p, 'o0', 'Video 2').names], [{ o1: 'Titles', a1: 'Voice' }, { o1: 'Titles', a1: 'Voice' }], 'empty or default name resets')
+  eq(removeTrack(p, 'overlay', 0).names, { o0: 'Titles', a1: 'Voice' }, 'names move down with their tracks')
+  eq(removeTrack(p, 'audio', 1).names, { o0: 'B-roll', o1: 'Titles' }, 'a removed track loses its name')
+}
 
 console.log('model ok')
