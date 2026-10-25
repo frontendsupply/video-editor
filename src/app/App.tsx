@@ -2,7 +2,7 @@
 // it, save it, bring files in and export.
 import { useEffect, useRef, useState } from 'react'
 import { bind, play } from 'cuelume'
-import { digitsFor, findPlaced, gridFor, projectDuration, trackName, type Media } from '@/lib/model'
+import { digitsFor, findPlaced, gridFor, projectDuration, trackName, updateClip, type Media } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { plural } from '@/lib/utils'
 import { useClipPreview } from '@/hooks/useClipPreview'
@@ -91,7 +91,7 @@ export function App() {
 
   return (
     <div className="flex h-full flex-col">
-      <input type="file" multiple accept="video/*,audio/*" hidden {...importer.input} />
+      <input type="file" multiple accept="video/*,audio/*,image/*" hidden {...importer.input} />
       <Header
         onNewProject={Object.keys(media).length ? () => setAskNew(true) : null}
         onAddMedia={importer.pick}
@@ -126,6 +126,14 @@ export function App() {
           )}
           <SequenceView
             canvasRef={canvasRef}
+            pictures={{
+              playerRef,
+              project,
+              media,
+              selected,
+              onSelect: editor.setSelected,
+              onTransform: (id, transform) => setProject(p => updateClip(p, id, { transform })),
+            }}
             hidden={clip.monitor === 'clip'}
             empty={!duration}
             loaded={storage.loaded}

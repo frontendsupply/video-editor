@@ -1,6 +1,6 @@
 // The frame the edit is shown and exported in, the export presets, and drawing one layer of a frame.
 import { projectDuration } from './layout.ts'
-import type { ExportPreset, Fit, Project } from './types.ts'
+import type { ExportPreset, Fit, Project, Transform } from './types.ts'
 import { layoutVideo } from './video1.ts'
 
 export const MIX_RATE = 48000 // Hz: the exported sound
@@ -32,6 +32,15 @@ export function exportSize(p: Project, media: Record<string, { width: number; he
   return [Math.round(W * s) & ~1, Math.round(H * s) & ~1]
 }
 
+// Where a layer lands in a W×H frame: fitted (or filled), then moved and resized by its clip's transform.
+export function layerRect(sw: number, sh: number, W: number, H: number, fit: Fit, t?: Transform) {
+  const r = fitRect(sw, sh, W, H, fit)
+  if (!t) return r
+  const w = r.w * t.scale
+  const h = r.h * t.scale
+  return { x: (W - w) / 2 + t.x * W, y: (H - h) / 2 + t.y * H, w, h }
+}
+
 export function fitRect(sw: number, sh: number, W: number, H: number, fit: Fit) {
   const s = fit === 'cover' ? Math.max(W / sw, H / sh) : Math.min(W / sw, H / sh)
   const w = sw * s
@@ -48,6 +57,7 @@ export function drawFrame(
   sh: number,
   fit: Fit,
   clear = true,
+  t?: Transform,
 ) {
   const { width: W, height: H } = ctx.canvas
   if (clear) {
@@ -55,7 +65,7 @@ export function drawFrame(
     ctx.fillRect(0, 0, W, H)
   }
   if (!src || !sw || !sh) return
-  const r = fitRect(sw, sh, W, H, fit)
+  const r = layerRect(sw, sh, W, H, fit, t)
   ctx.drawImage(src, r.x, r.y, r.w, r.h)
 }
 
@@ -64,5 +74,5 @@ export function drawFrame(
 export const plainCuts = (p: Project) =>
   p.video.length > 0 &&
   !p.overlay.length &&
-  p.video.every(c => c.speed === 1 && !c.gap) &&
+  p.video.every(c => c.speed === 1 && !c.gap && !c.transform) &&
   layoutVideo(p.video).at(-1)!.end >= projectDuration(p) - 1e-6

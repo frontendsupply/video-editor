@@ -6,10 +6,10 @@ import { ContextMenu } from '@base-ui/react/context-menu'
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
 import { play } from 'cuelume'
-import { ArrowLeftRight, Film, Layers, Music, Plus } from 'lucide-react'
+import { ArrowLeftRight, Layers, Music, Plus } from 'lucide-react'
 import {
   addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, layoutFree, layoutVideo, moveClip, moveVideoClip, projectDuration, removeClip,
-  removeTrack, renameTrack, slideVideoClip, snapPoints, snapShift, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio,
+  removeTrack, renameTrack, slideVideoClip, snapPoints, snapShift, sourceEnd, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio,
   updateClip, type Clip, type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type Range, type SplitTarget,
 } from '@/lib/model'
 import { cn, plural } from '@/lib/utils'
@@ -233,7 +233,7 @@ export function Timeline(props: Props) {
     // The dragged edge follows the mouse. A left edge keeps the content in place (on Video 1 the start moves into the
     // gap in front, the clips after it stay put); a right edge on Video 1 carries the clips after it along.
     const trimmed = (d: number) => {
-      const dur = media[clip.mediaId].duration
+      const dur = sourceEnd(media[clip.mediaId])
       const c = !free && edge === 'in' ? trimVideoIn(clip, d, dur) : trimClip(clip, edge, d, dur, free)
       const start = free ? c.start : pl.start - (clip.gap ?? 0) + (c.gap ?? 0)
       return { c, start, edgeAt: edge === 'in' ? start : start + clipLength(c) }
@@ -451,7 +451,7 @@ export function Timeline(props: Props) {
     {
       key: 'v1',
       size: 'mt-1.5 h-14',
-      header: named('v1', <Film size={13} className="shrink-0" />),
+      header: named('v1', <Layers size={13} className="shrink-0" />),
       lane: (
         // Video 1: magnetic, each clip right after the one before plus its gap; a sideways drag slides or moves a clip
         <div className={cn('relative flex h-full items-stretch', lane, dropRing('v1'))} {...dropProps('v1', { kind: 'video' })}>
@@ -512,7 +512,7 @@ export function Timeline(props: Props) {
       header: named(`o${l}`, <Layers size={13} className="shrink-0" />, `Drawn on top of ${l ? nameOf('overlay', l - 1) : trackName(project, 'v1')}`),
       lane: (
         <div className={cn('relative h-full', lane, dropRing(`o${l}`))} {...dropProps(`o${l}`, { kind: 'overlay', lane: l })}>
-          {!project.overlay.some(c => laneOf(c) === l) && <span className={hint}>Drag a video from the media bin here to overlay it</span>}
+          {!project.overlay.some(c => laneOf(c) === l) && <span className={hint}>Drag a video or image from the media bin here to overlay it</span>}
           {layoutFree(project.overlay).filter(pl => laneOf(pl.clip) === l).map(pl => freeClip(pl, 'overlay'))}
         </div>
       ),
