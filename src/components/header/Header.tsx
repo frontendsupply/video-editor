@@ -1,8 +1,8 @@
 // The header: one slim row of small controls. New project and Add media, undo, redo and delete, then Export.
+import type { ComponentProps } from 'react'
 import { Menu } from '@base-ui/react/menu'
 import { play } from 'cuelume'
 import { ChevronDown, FilePlus2, Plus, Redo2, Trash2, Undo2 } from 'lucide-react'
-import type { ExportPreset, Media, Project } from '@/lib/model'
 import { cn, MOD } from '@/lib/utils'
 import { Divider, headerBtn, headerIcon, popup, primaryBtn, Tip } from '@/components/ui'
 import { ExportItems } from '@/components/export/ExportItems'
@@ -14,7 +14,7 @@ export function Header(props: {
   onRedo: (() => void) | null
   onDelete: (() => void) | null
   deleting: 'region' | 'clip'
-  exporting: { project: Project; media: Record<string, Media>; onPick: (preset: ExportPreset) => void; onFps: (fps: number) => void } | null
+  exporting: ComponentProps<typeof ExportItems> | null
 }) {
   return (
     <header className="flex h-8 shrink-0 items-center gap-0.5 border-b border-line bg-chrome px-1.5">

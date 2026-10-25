@@ -87,7 +87,7 @@ export function App() {
   })
 
   const parked = new Set((project.parked ?? []).map(x => x.clip.mediaId)) // unchecked files with clips set aside
-  const exportTo = { project, media, onPick: exporter.start, onFps: (fps: number) => setProject(p => ({ ...p, fps })) }
+  const exportTo = { project, media, onPick: exporter.start, onFps: (fps: number) => setProject(p => ({ ...p, fps })), name: exporter.name, onName: exporter.setName }
 
   return (
     <div className="flex h-full flex-col">
@@ -174,6 +174,8 @@ export function App() {
           onDeleteRange={editor.del}
           onCrop={editor.crop}
           onExport={exporter.start}
+          exportName={exporter.name}
+          onExportName={exporter.setName}
           onSaveAudio={exporter.saveAudio}
           onMark={editor.mark}
           playing={playing}

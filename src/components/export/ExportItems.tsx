@@ -5,18 +5,36 @@ import { EXPORT_PRESETS, FRAME_RATES, exportSize, outputSize, type ExportPreset,
 import { cn } from '@/lib/utils'
 import { menuItem, menuSeparator } from '@/components/ui'
 
-// The export menu's contents, for the header Export and the selection's: frame rate in one row (stays open while you
-// pick), then the sizes to export at, each with its output size (picking one exports).
+// The export menu's contents, for the header Export and the selection's: the file name (focused, selected, ready to
+// type over), frame rate in one row (stays open while you pick), then the sizes to export at, each with its output
+// size (picking one exports).
 export function ExportItems(props: {
   project: Project
   media: Record<string, Media>
   onPick: (preset: ExportPreset) => void
   onFps: (fps: number) => void
+  name: string
+  onName: (name: string) => void
 }) {
   const { project, media, onPick } = props
   const [W, H] = outputSize(project, media)
   return (
     <>
+      <label className="mx-1 mt-0.5 mb-1 flex h-6 items-center rounded-sm bg-canvas ring-1 ring-line ring-inset focus-within:ring-ink/35">
+        <input
+          autoFocus
+          aria-label="File name"
+          value={props.name}
+          onChange={e => props.onName(e.target.value)}
+          onFocus={e => e.target.select()}
+          // typing is for the name, not the menu's jump-to-item; Esc and Tab still close it
+          onKeyDown={e => e.key !== 'Escape' && e.key !== 'Tab' && e.stopPropagation()}
+          spellCheck={false}
+          className="h-full min-w-0 flex-1 bg-transparent pl-2 text-[12px] outline-none"
+        />
+        <span className="pr-2 text-[11px] text-muted">.mp4</span>
+      </label>
+      <Menu.Separator className={menuSeparator} />
       <Menu.RadioGroup
         value={project.fps}
         onValueChange={fps => {
