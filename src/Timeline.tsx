@@ -6,7 +6,7 @@ import { Menu } from '@base-ui/react/menu'
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
 import { Toggle } from '@base-ui/react/toggle'
-import { ArrowLeftRight, ChevronRight, Crop, Download, Film, Layers, Magnet, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
+import { ArrowLeftFromLine, ArrowLeftRight, ArrowRightFromLine, ChevronRight, Crop, Download, Film, Layers, Magnet, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
 import {
   addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, layoutVideo, moveClip, moveVideoClip, PEAKS_PER_SEC, slideVideoClip, projectDuration, removeClip, removeTrack,
   snapPoints, snapShift, timecode, trimClip, unlinkAudio, updateClip,
@@ -115,7 +115,7 @@ export function Timeline(props: Props) {
   }
   const [selecting, setSelecting] = useState(false)
   const [moving, setMoving] = useState<'a' | 'b'>('b') // the range edge being dragged
-  const [marking, setMarking] = useState(false) // a click placed the playhead: offer [ ] to mark the range there
+  const [marking, setMarking] = useState(false) // a click placed the playhead: offer the start/end mark buttons there
   const [menu, setMenu] = useState<Placed | 'range' | null>(null) // what the right-click menu acts on
   const contentRef = useRef<HTMLDivElement>(null)
   const hoverRef = useRef<HTMLSpanElement>(null)
@@ -681,7 +681,7 @@ export function Timeline(props: Props) {
                   {(['in', 'out'] as const).map(edge => (
                     <Tip key={edge} label={edge === 'in' ? 'Mark selection start here (I)' : 'Mark selection end here (O)'}>
                       <button
-                        className={`${mini} text-[13px] leading-none font-bold`}
+                        className={mini}
                         onClick={() => {
                           play('select', { emphasis: 'subtle' })
                           props.onMark(edge)
@@ -689,7 +689,7 @@ export function Timeline(props: Props) {
                         }}
                         aria-label={edge === 'in' ? 'Mark selection start' : 'Mark selection end'}
                       >
-                        {edge === 'in' ? '[' : ']'}
+                        {edge === 'in' ? <ArrowRightFromLine size={12} /> : <ArrowLeftFromLine size={12} />}
                       </button>
                     </Tip>
                   ))}

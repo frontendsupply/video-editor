@@ -88,7 +88,7 @@ function App() {
       const label = playheadLabelRef.current
       if (!label || !sc) return
       label.textContent = timecode(t, digitsRef.current && 1) // at most tenths: the clock under the preview has the ms
-      // The pill is centred on the playhead (~34 px each side): nudge it (and the [ ] beside it) to stay inside the
+      // The pill is centred on the playhead (~34 px each side): nudge it (and the mark buttons beside it) to stay inside the
       // visible timeline.
       const left = x + 16 - sc.scrollLeft // the lanes start 16 px into the scroll area
       playheadRef.current!.style.setProperty('--nudge', `${Math.max(0, 34 - left) - Math.max(0, 34 - (viewWRef.current - left))}px`)
@@ -405,7 +405,7 @@ function App() {
                 <div className="grid grid-cols-2 content-start gap-2 p-2">
                   <AnimatePresence initial={false}>
                     {bin(kind).map(m => (
-                      <motion.div key={m.id} layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="group min-w-0">
+                      <motion.div key={m.id} layout="position" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="group min-w-0">
                         {/* drag onto any timeline lane; a native draggable div so the animated wrapper's drag props stay off */}
                         <div
                           draggable
@@ -437,12 +437,17 @@ function App() {
                               </Tip>
                             )}
                           </div>
+                          {/* the waveform being read: a thin bar along the bottom, so the card never changes size */}
+                          {m.hasAudio && (m.peaksDone ?? 0) < 1 && (
+                            <Tip label={`Reading audio · ${Math.floor((m.peaksDone ?? 0) * 100)}%`}>
+                              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-ink/10">
+                                <span className="block h-full bg-emerald-600 transition-[width] duration-200" style={{ width: `${(m.peaksDone ?? 0) * 100}%` }} />
+                              </span>
+                            </Tip>
+                          )}
                         </div>
                         <div className="mt-1 truncate text-[11px]" title={m.name}>{m.name}</div>
                         {m.hasVideo && <div className="text-[10px] text-ink/40 tabular-nums">{m.width}×{m.height}</div>}
-                        {m.hasAudio && (m.peaksDone ?? 0) < 1 && (
-                          <div className="text-[10px] text-emerald-700 tabular-nums">Reading audio · {Math.floor((m.peaksDone ?? 0) * 100)}%</div>
-                        )}
                         </div>
                       </motion.div>
                     ))}

@@ -6,7 +6,7 @@ import { Slider as BaseSlider } from '@base-ui/react/slider'
 import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
 import { play } from 'cuelume'
-import { Check, ChevronDown, ChevronsUpDown, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronsUpDown, Film, RectangleHorizontal, RectangleVertical, Smartphone, Square, X, type LucideIcon } from 'lucide-react'
 import { EXPORT_PRESETS, exportSize, outputSize, type Aspect, type ExportPreset, type Fit, type Media, type Project } from './model'
 
 export const card = 'rounded-lg bg-white ring-1 ring-ink/8'
@@ -167,38 +167,29 @@ export function ExportItems(props: {
   )
 }
 
-const FRAMES: { value: Aspect; label: string }[] = [
-  { value: 'original', label: 'Original' },
-  { value: '16:9', label: '16:9 Landscape' },
-  { value: '9:16', label: '9:16 Portrait' },
-  { value: '1:1', label: '1:1 Square' },
-  { value: '4:5', label: '4:5 Vertical' },
+const FRAMES: { value: Aspect; label: string; Icon: LucideIcon }[] = [
+  { value: 'original', label: 'Original', Icon: Film }, // follows the first clip
+  { value: '16:9', label: '16:9 Landscape', Icon: RectangleHorizontal },
+  { value: '9:16', label: '9:16 Portrait', Icon: Smartphone },
+  { value: '1:1', label: '1:1 Square', Icon: Square },
+  { value: '4:5', label: '4:5 Vertical', Icon: RectangleVertical },
 ]
 const FITS: { value: Fit; label: string; hint: string }[] = [
   { value: 'contain', label: 'Fit', hint: 'Show all, with bars' },
   { value: 'cover', label: 'Fill', hint: 'Crop to the frame' },
 ]
 
-// A small outline in the frame's proportions (at most 16×12); dashed for Original, which follows the first clip.
-const FrameShape = ({ w, h, dashed }: { w: number; h: number; dashed?: boolean }) => {
-  const k = Math.min(16 / w, 12 / h)
-  return (
-    <span className="grid size-4 shrink-0 place-items-center">
-      <span className={`rounded-xs border-[1.5px] border-current ${dashed ? 'border-dashed' : ''}`} style={{ width: Math.max(5, Math.round(w * k)), height: Math.max(5, Math.round(h * k)) }} />
-    </span>
-  )
-}
-
-// The output frame: a label with its shape, aspect, fit and size, opening the aspect ratios (with their shapes and sizes)
+// The output frame: a label with its icon, aspect, fit and size, opening the aspect ratios (with their icons and sizes)
 // and what happens when a clip doesn't match. The menu stays open, so the preview updates behind it.
 export function FrameMenu(props: { project: Project; media: Record<string, Media>; onChange: (patch: { aspect?: Aspect; fit?: Fit }) => void }) {
   const { project, media } = props
   const [W, H] = outputSize(project, media)
+  const Current = FRAMES.find(f => f.value === project.aspect)!.Icon
   const item = `${menuItem} grid grid-cols-[12px_16px_1fr_auto] justify-normal gap-2 py-1.5`
   return (
     <Menu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
       <Menu.Trigger className="flex h-6 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-ink/65 tabular-nums transition-colors hover:bg-ink/5 hover:text-ink data-popup-open:bg-ink/5 data-popup-open:text-ink">
-        <FrameShape w={W} h={H} dashed={project.aspect === 'original'} />
+        <Current size={14} className="opacity-70" />
         {project.aspect === 'original' ? 'Original' : project.aspect} · {project.fit === 'contain' ? 'Fit' : 'Fill'} · {W}×{H}
         <ChevronDown size={12} className="opacity-60" />
       </Menu.Trigger>
@@ -219,7 +210,7 @@ export function FrameMenu(props: { project: Project; media: Record<string, Media
                 return (
                   <Menu.RadioItem key={f.value} value={f.value} className={item}>
                     <Menu.RadioItemIndicator><Check size={12} /></Menu.RadioItemIndicator>
-                    <span className="col-start-2 text-ink/55"><FrameShape w={w} h={h} dashed={f.value === 'original'} /></span>
+                    <f.Icon size={14} className="col-start-2 text-ink/55" />
                     <span>{f.label}</span>
                     <span className="text-[10px] opacity-55 tabular-nums">{w}×{h}</span>
                   </Menu.RadioItem>
