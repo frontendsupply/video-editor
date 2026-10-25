@@ -16,6 +16,8 @@ export function TimelineMenu(props: {
   onCrop: () => void
   onExport: (preset: ExportPreset, region: Range) => void
   onFps: (fps: number) => void
+  name: string
+  onName: (name: string) => void
   onUnlink: (id: string) => void
   onSaveAudio: (clip: Clip) => void
   onDeleteClip: (id: string) => void
@@ -44,7 +46,7 @@ export function TimelineMenu(props: {
                 <ContextMenu.Portal>
                   <ContextMenu.Positioner className="z-20 outline-none" sideOffset={4}>
                     <ContextMenu.Popup className={cn(popup, 'w-52')}>
-                      <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} />
+                      <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} name={props.name} onName={props.onName} />
                     </ContextMenu.Popup>
                   </ContextMenu.Positioner>
                 </ContextMenu.Portal>

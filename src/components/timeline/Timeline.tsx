@@ -40,6 +40,8 @@ type Props = {
   onDeleteRange: () => void
   onCrop: () => void
   onExport: (preset: ExportPreset, region: Range) => void
+  exportName: string
+  onExportName: (name: string) => void
   onSaveAudio: (clip: Clip) => void
   onMark: (edge: 'in' | 'out') => void
   playing: boolean
@@ -441,6 +443,8 @@ export function Timeline(props: Props) {
               media={media}
               onExport={props.onExport}
               onFps={setFps}
+              name={props.exportName}
+              onName={props.onExportName}
             />
           ),
         }]),
@@ -608,6 +612,8 @@ export function Timeline(props: Props) {
                 onCrop={props.onCrop}
                 onExport={props.onExport}
                 onFps={setFps}
+                name={props.exportName}
+                onName={props.onExportName}
                 onUnlink={id => {
                   play('tap', { emphasis: 'strong' })
                   onChange(unlinkAudio(project, id))

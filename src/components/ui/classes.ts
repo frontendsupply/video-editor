@@ -12,7 +12,7 @@ export const headerBtn =
 export const headerIcon =
   'grid size-6 place-items-center rounded-md text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
 // The one action that matters most where it sits (Export, Add to timeline, Reconnect files).
-export const primaryBtn = cn(headerBtn, 'bg-surface font-semibold text-ink ring-1 ring-line')
+export const primaryBtn = cn(headerBtn, 'bg-surface font-semibold text-ink ring-1 ring-line ring-inset') // the ring inside, so it's as tall as the rest
 // The confirming button of a dialog that removes something.
 export const dangerBtn =
   'inline-flex h-8 items-center rounded-md bg-playhead/10 px-3 text-[11px] font-semibold text-playhead hover:bg-playhead/15'

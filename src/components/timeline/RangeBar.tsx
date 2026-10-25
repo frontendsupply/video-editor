@@ -22,6 +22,8 @@ export function RangeBar(props: {
   media: Record<string, Media>
   onExport: (preset: ExportPreset, region: Range) => void
   onFps: (fps: number) => void
+  name: string
+  onName: (name: string) => void
 }) {
   const { range, pps, digits } = props
   return (
@@ -81,7 +83,7 @@ export function RangeBar(props: {
             <Menu.Portal>
               <Menu.Positioner className="z-20 outline-none" sideOffset={6}>
                 <Menu.Popup className={cn(popup, 'w-52')}>
-                  <ExportItems project={props.project} media={props.media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} />
+                  <ExportItems project={props.project} media={props.media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} name={props.name} onName={props.onName} />
                 </Menu.Popup>
               </Menu.Positioner>
             </Menu.Portal>
