@@ -2,6 +2,7 @@
 export * from './classes'
 export { ConfirmDialog } from './ConfirmDialog'
 export { Divider } from './Divider'
+export { ResizeHandle } from './ResizeHandle'
 export { Select } from './Select'
 export { Slider } from './Slider'
 export { Tip } from './Tip'

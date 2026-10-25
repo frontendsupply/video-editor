@@ -14,7 +14,7 @@ import { usePlayer } from '@/hooks/usePlayer'
 import { useProjectStorage } from '@/hooks/useProjectStorage'
 import { useShortcuts } from '@/hooks/useShortcuts'
 import { useZoom } from '@/hooks/useZoom'
-import { ConfirmDialog } from '@/components/ui'
+import { ConfirmDialog, ResizeHandle } from '@/components/ui'
 import { MediaBin } from '@/components/bin/MediaBin'
 import { ExportProgress } from '@/components/export/ExportProgress'
 import { FileDropOverlay } from '@/components/FileDropOverlay'
@@ -24,7 +24,6 @@ import { FrameMenu } from '@/components/preview/FrameMenu'
 import { MonitorTabs } from '@/components/preview/MonitorTabs'
 import { SequenceView } from '@/components/preview/SequenceView'
 import { Transport } from '@/components/preview/Transport'
-import { ResizeHandle } from '@/components/timeline/ResizeHandle'
 import { Timeline } from '@/components/timeline/Timeline'
 import { TimelineBoundary } from '@/components/timeline/TimelineBoundary'
 import { TimelineFooter } from '@/components/timeline/TimelineFooter'
@@ -39,6 +38,7 @@ export function App() {
   const seekAfter = useRef<number | undefined>(undefined)
   const [viewW, setViewW] = useState(0) // visible width of the timeline's lanes
   const [timelineH, setTimelineH] = useState(244)
+  const [binW, setBinW] = useState(320)
   // Confirmations: a file with clips being removed, and New project. Closing only flips `open`, so the text stays
   // while the dialog animates out.
   const [removing, setRemoving] = useState<{ media: Media; clips: number; open: boolean } | null>(null)
@@ -104,6 +104,7 @@ export function App() {
 
       <div className="flex min-h-0 flex-1">
         <MediaBin
+          width={binW}
           media={media}
           used={editor.used}
           parked={parked}
@@ -113,6 +114,7 @@ export function App() {
           onAppendVideo={editor.appendVideo}
           onAddAudio={editor.addAudio}
         />
+        <ResizeHandle size={binW} edge="right" min={220} max={innerWidth * 0.4} label="Resize media bin" onResize={setBinW} />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface">
           <MonitorTabs
             showing={clip.monitor}
@@ -164,7 +166,7 @@ export function App() {
         </main>
       </div>
 
-      <ResizeHandle height={timelineH} onResize={setTimelineH} />
+      <ResizeHandle size={timelineH} edge="top" min={236} max={innerHeight * 0.65} label="Resize timeline" onResize={setTimelineH} />
 
       <TimelineBoundary onUndo={editor.undo}>
         <Timeline
