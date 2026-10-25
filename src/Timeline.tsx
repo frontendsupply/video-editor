@@ -7,8 +7,8 @@ import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
 import { ArrowLeftFromLine, ArrowLeftRight, ArrowRightFromLine, ChevronRight, Crop, Download, Film, Layers, Minus, Music, Plus, Scissors, Trash2, Unlink } from 'lucide-react'
 import {
-  addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, layoutVideo, moveClip, moveVideoClip, PEAKS_PER_SEC, slideVideoClip, projectDuration, removeClip, removeTrack,
-  snapPoints, snapShift, tickStep, timecode, trimClip, trimVideoIn, unlinkAudio, updateClip,
+  addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, lengthLabel, layoutFree, layoutVideo, moveClip, moveVideoClip, PEAKS_PER_SEC, slideVideoClip, projectDuration, removeClip, removeTrack, renameTrack,
+  snapPoints, snapShift, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio, updateClip,
   type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type SplitTarget,
 } from './model'
 import { dialogBackdrop, dialogPopup, ExportItems, menuItem, pill, popup, Tip } from './ui'
@@ -410,7 +410,14 @@ export function Timeline(props: Props) {
 
   // − removes the last added track of a kind (Video 2+, Audio 2+); Video 1 and Audio 1 always stay.
   const lastLane = (kind: LaneKind) => (kind === 'overlay' ? project.overlayTracks - 1 : project.audioTracks > 1 ? project.audioTracks - 1 : -1)
-  const trackName = (kind: LaneKind, l: number) => (kind === 'overlay' ? `Video ${l + 2}` : `Audio ${l + 1}`)
+  const nameOf = (kind: LaneKind, l: number) => trackName(project, trackKey(kind, l))
+  // A track header: its icon and name, click the name to rename it.
+  const named = (key: string, icon: ReactNode, tip?: string) => (
+    <div className={head}>
+      {icon}
+      <TrackName name={trackName(project, key)} tip={`${tip ? `${tip}. ` : ''}Click to rename`} onRename={name => onChange(renameTrack(project, key, name))} />
+    </div>
+  )
   const removeLane = (kind: LaneKind, lane: number) => {
     play('close', { emphasis: 'strong' })
     onChange(removeTrack(project, kind, lane))
@@ -428,7 +435,7 @@ export function Timeline(props: Props) {
     const btn = 'grid size-5 place-items-center rounded-sm text-muted hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
     return (
       <div className="flex h-full items-center justify-end gap-0.5 px-1.5">
-        <Tip label={l < 0 ? `No added ${noun} track to remove` : `Remove ${trackName(kind, l)}`}>
+        <Tip label={l < 0 ? `No added ${noun} track to remove` : `Remove ${nameOf(kind, l)}`}>
           <button className={btn} disabled={l < 0} onClick={() => askRemove(kind)} aria-label={`Remove ${noun} track`}>
             <Minus size={13} />
           </button>
@@ -519,7 +526,7 @@ export function Timeline(props: Props) {
     {
       key: 'v1',
       size: 'mt-1.5 h-14',
-      header: <div className={head}><Film size={13} /> Video 1</div>,
+      header: named('v1', <Film size={13} className="shrink-0" />),
       lane: (
         // Video 1: magnetic, each clip right after the one before plus its gap; a sideways drag slides or moves a clip
         <div className={`relative flex h-full items-stretch ${lane} ${dropRing('v1')}`} {...dropProps('v1', { kind: 'video' })}>
@@ -573,11 +580,7 @@ export function Timeline(props: Props) {
     ...Array.from({ length: project.overlayTracks }, (_, l): Row => ({
       key: `o${l}`,
       size: 'mt-1.5 h-14',
-      header: (
-        <Tip label={`Drawn on top of Video ${l + 1}`}>
-          <div className={head}><Layers size={13} /> Video {l + 2}</div>
-        </Tip>
-      ),
+      header: named(`o${l}`, <Layers size={13} className="shrink-0" />, `Drawn on top of ${l ? nameOf('overlay', l - 1) : trackName(project, 'v1')}`),
       lane: (
         <div className={`relative h-full ${lane} ${dropRing(`o${l}`)}`} {...dropProps(`o${l}`, { kind: 'overlay', lane: l })}>
           {!project.overlay.some(c => laneOf(c) === l) && <span className={hint}>Drag a video from the media bin here to overlay it</span>}
@@ -590,9 +593,7 @@ export function Timeline(props: Props) {
     ...Array.from({ length: project.audioTracks }, (_, l): Row => ({
       key: `a${l}`,
       size: 'mt-1.5 h-9',
-      header: (
-        <div className={head}><Music size={13} /> Audio {l + 1}</div>
-      ),
+      header: named(`a${l}`, <Music size={13} className="shrink-0" />),
       lane: (
         <div className={`relative h-full ${lane} ${dropRing(`a${l}`)}`} {...dropProps(`a${l}`, { kind: 'audio', lane: l })}>
           {!project.audio.some(c => laneOf(c) === l) && <span className={hint}>Drag and drop your audio clips here to mix</span>}
@@ -783,7 +784,7 @@ export function Timeline(props: Props) {
             {confirm && (
               <>
                 <div className="grid gap-1">
-                  <AlertDialog.Title className="text-sm font-semibold">Remove {trackName(confirm.kind, confirm.lane)}?</AlertDialog.Title>
+                  <AlertDialog.Title className="text-sm font-semibold">Remove {nameOf(confirm.kind, confirm.lane)}?</AlertDialog.Title>
                   <AlertDialog.Description className="text-[11px] text-muted">
                     It has {confirm.clips} {confirm.clips === 1 ? 'clip' : 'clips'}, which will be removed with the track. You can undo this.
                   </AlertDialog.Description>
@@ -810,6 +811,37 @@ export function Timeline(props: Props) {
 }
 
 // A video clip: repeated thumbnail, its sound in a strip underneath (until unlinked), name.
+// A track's name, edited in place: hovering draws a dashed outline (with a text cursor), a click edits it. Enter or
+// clicking away keeps it, Esc cancels, empty brings the default back.
+function TrackName({ name, tip, onRename }: { name: string; tip: string; onRename: (name: string) => void }) {
+  const [editing, setEditing] = useState(false)
+  if (!editing)
+    return (
+      <Tip label={tip}>
+        <button className="-mx-1 h-5 min-w-0 flex-1 cursor-text truncate px-1 text-left hover:text-ink hover:outline-1 hover:outline-ink/40 hover:outline-dashed" onClick={() => setEditing(true)}>
+          {name}
+        </button>
+      </Tip>
+    )
+  return (
+    <input
+      autoFocus
+      defaultValue={name}
+      aria-label="Track name"
+      onFocus={e => e.currentTarget.select()}
+      onBlur={e => {
+        setEditing(false)
+        if (e.currentTarget.value.trim() !== name) onRename(e.currentTarget.value)
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Escape') e.currentTarget.value = name
+        if (e.key === 'Enter' || e.key === 'Escape') e.currentTarget.blur()
+      }}
+      className="-mx-1 h-5 min-w-0 flex-1 bg-surface px-1 text-ink ring-1 ring-accent outline-none select-text"
+    />
+  )
+}
+
 function ClipBody({ pl, media, width, view }: { pl: Placed; media: Media; width: number; view: [number, number] }) {
   return (
     <div className="relative flex h-full flex-col gap-0.5 overflow-hidden rounded-md bg-surface p-1 ring-1 ring-line group-data-selected:ring-2 group-data-selected:ring-accent">

@@ -17,7 +17,7 @@ import { exportProject } from './export'
 import { useHistory } from './history'
 import { computePeaks, importFile } from './media'
 import {
-  audio1End, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip,
+  audio1End, cropRange, digitsFor, emptyProject, findPlaced, gridFor, lengthLabel, newClip, parkMedia, placeClip, trackName,
   projectDuration, removeClip, rippleDelete, splitAt, splitRange, timecode, unparkMedia, updateClip,
   type Clip, type DropTarget, type ExportPreset, type Media, type Project, type SplitTarget,
 } from './model'
@@ -570,7 +570,7 @@ function App() {
                         Split all tracks <kbd className="font-sans text-[10px] text-muted">S</kbd>
                       </Menu.Item>
                       <Menu.Separator className="mx-1 my-1 h-px bg-ink/6" />
-                      <Menu.Item className={menuItem} disabled={!project.video.length} onClick={() => split('video')}>Split Video 1</Menu.Item>
+                      <Menu.Item className={menuItem} disabled={!project.video.length} onClick={() => split('video')}>Split {trackName(project, 'v1')}</Menu.Item>
                       {project.overlayTracks > 0 && (
                         <Menu.Item className={menuItem} disabled={!project.overlay.length} onClick={() => split('overlay')}>Split overlay video tracks</Menu.Item>
                       )}
