@@ -380,7 +380,7 @@ function App() {
       </header>
 
       <div className="flex min-h-0 flex-1 gap-1.5">
-        {/* media bin, with the selected clip's properties docked underneath */}
+        {/* media bin */}
         <aside className={`${card} flex w-72 shrink-0 flex-col overflow-hidden`}>
           <Tabs.Root value={binTab} onValueChange={v => setBinTab(v as 'video' | 'audio')} className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center border-b border-ink/6 pr-1">
@@ -453,29 +453,6 @@ function App() {
             ))}
           </Tabs.Root>
 
-          <AnimatePresence initial={false}>
-            {sel && (
-              <motion.section
-                key="clip"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.15 }}
-                className="grid gap-3 border-t border-ink/6 p-3"
-              >
-                <div className="grid gap-0.5">
-                  <h3 className="truncate text-xs font-semibold" title={media[sel.clip.mediaId].name}>{media[sel.clip.mediaId].name}</h3>
-                  <span className="text-[10px] text-ink/45 tabular-nums">{timecode(sel.start)} → {timecode(sel.end)}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-3">
-                  <Select label="Speed" value={sel.clip.speed} items={SPEEDS} onChange={speed => patch({ speed })} />
-                  {media[sel.clip.mediaId].hasAudio && !sel.clip.muted ? (
-                    <Slider label="Volume" value={sel.clip.volume} onChange={volume => patch({ volume })} format={{ style: 'percent' }} />
-                  ) : <span />}
-                </div>
-              </motion.section>
-            )}
-          </AnimatePresence>
         </aside>
 
         {/* sequence preview with transport and split */}
@@ -589,13 +566,30 @@ function App() {
           scrollRef={scrollRef}
           footer={
             <>
-              <span className="pl-1 text-[10px] text-ink/40">
-                {range ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more` : duration ? 'Drag in the Select bar to pick a range · click the ruler to move the playhead · I / O mark in / out' : 'Add videos or audio to start editing'}
-              </span>
+              {sel && !range ? (
+                // the selected clip, in one row: name and times, then its settings
+                <div className="flex min-w-0 items-center gap-1.5 pl-1 text-[11px]">
+                  {media[sel.clip.mediaId].hasVideo ? <Film size={12} className="shrink-0 text-ink/40" /> : <Music size={12} className="shrink-0 text-ink/40" />}
+                  <span className="max-w-48 truncate font-medium" title={media[sel.clip.mediaId].name}>{media[sel.clip.mediaId].name}</span>
+                  <span className="shrink-0 text-[10px] text-ink/45 tabular-nums">{timecode(sel.start, digits)} → {timecode(sel.end, digits)}</span>
+                  <Divider />
+                  <Select label="Speed" value={sel.clip.speed} items={SPEEDS} onChange={speed => patch({ speed })} />
+                  {media[sel.clip.mediaId].hasAudio && !sel.clip.muted && (
+                    <>
+                      <Divider />
+                      <Slider label="Volume" value={sel.clip.volume} onChange={volume => patch({ volume })} format={{ style: 'percent' }} width="w-20" />
+                    </>
+                  )}
+                </div>
+              ) : (
+                <span className="truncate pl-1 text-[10px] text-ink/40">
+                  {range ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more` : duration ? 'Drag in the Select bar to pick a range · click the ruler to move the playhead · I / O mark in / out' : 'Add videos or audio to start editing'}
+                </span>
+              )}
               <div className="flex-1" />
               <Tip label="Zoom to fit"><button className={ghost} onClick={fitZoom} disabled={!duration} data-cuelume-tap="" data-cuelume-emphasis="subtle"><Maximize2 size={13} /></button></Tip>
               <Tip label="Zoom out"><button className={ghost} onClick={() => zoomBy(1 / 1.5)} disabled={!duration}><ZoomOut size={14} /></button></Tip>
-              <Slider inline label="Zoom" value={Math.log(pps)} min={Math.log(zoomMin)} max={Math.log(zoomMax)} step={0.01} onChange={v => setZoom(Math.exp(v))} disabled={!duration} />
+              <Slider label="Zoom" value={Math.log(pps)} min={Math.log(zoomMin)} max={Math.log(zoomMax)} step={0.01} onChange={v => setZoom(Math.exp(v))} disabled={!duration} />
               <Tip label="Zoom in"><button className={ghost} onClick={() => zoomBy(1.5)} disabled={!duration}><ZoomIn size={14} /></button></Tip>
             </>
           }
