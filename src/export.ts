@@ -1,7 +1,7 @@
 import {
   ALL_FORMATS, AudioBufferSink, AudioBufferSource, BlobSource, BufferTarget, CanvasSink, CanvasSource, Input,
   Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_LOW, QUALITY_MEDIUM, StreamTarget, getFirstEncodableAudioCodec, getFirstEncodableVideoCodec,
-  type StreamTargetChunk, type WrappedCanvas,
+  type InputAudioTrack, type StreamTargetChunk, type WrappedCanvas,
 } from 'mediabunny'
 import { SimpleFilter, SoundTouch, WebAudioBufferSource } from 'soundtouchjs'
 import {
@@ -53,10 +53,12 @@ export async function exportProject(
 
   await output.start()
   try {
-    // Audio mixes while video encodes; audio is tiny next to video so the muxer buffering it is cheap.
+    // Audio mixes while video encodes, a chunk at a time; encoded audio is tiny next to video, so the muxer holding it
+    // until the video catches up is cheap.
+    const encoded = { t: 0 } // how far the video has got, so the audio mix keeps pace
     await Promise.all([
-      renderVideo(p, media, canvas.getContext('2d')!, video, duration, onProgress, signal).then(() => video.close()),
-      audio && mixAudio(p, media, duration).then(buf => audio.add(buf)).then(() => audio.close()),
+      renderVideo(p, media, canvas.getContext('2d')!, video, duration, onProgress, signal, encoded).then(() => video.close()),
+      audio && mixAudio(p, media, duration, audio, signal, encoded).then(() => audio.close()),
     ])
     commit = true
     await output.finalize()
@@ -78,6 +80,7 @@ async function renderVideo(
   duration: number,
   onProgress: (fraction: number) => void,
   signal: AbortSignal,
+  encoded: { t: number },
 ) {
   const { width: W, height: H } = ctx.canvas
   const fps = p.fps
@@ -120,51 +123,90 @@ async function renderVideo(
         if (f === l.end - 1) await close(l)
       }
       await video.add(t, 1 / fps) // resolves when the encoder is ready for more (backpressure)
+      encoded.t = t
       onProgress((f + 1) / total)
     }
   } finally {
+    encoded.t = Infinity // done (or failed): the audio needn't wait any more
     for (const l of [...open.keys()]) await close(l) // cancelled mid-export
   }
 }
 
-// ponytail: mixes the whole timeline in one OfflineAudioContext (~23 MB per stereo minute); chunk it if hour-long exports run out of memory.
-async function mixAudio(p: Project, media: Record<string, Media>, duration: number) {
-  const ctx = new OfflineAudioContext(2, Math.max(1, Math.ceil(duration * SAMPLE_RATE)), SAMPLE_RATE)
-  for (const pl of [...layoutVideo(p.video), ...layoutFree(p.overlay), ...layoutFree(p.audio)]) {
-    const { clip, start } = pl
-    if (!media[clip.mediaId].hasAudio || clip.volume === 0 || clip.muted) continue
-    let buf = await decodeRange(media[clip.mediaId].file, clip.in, clip.out)
-    if (!buf) continue
-    if (clip.speed !== 1) buf = timeStretch(buf, clip.speed)
-    const gain = new GainNode(ctx, { gain: clip.volume })
-    const src = new AudioBufferSourceNode(ctx, { buffer: buf })
-    src.connect(gain).connect(ctx.destination)
-    src.start(start)
+// The mix is rendered CHUNK seconds at a time and handed to the encoder as it goes, so memory stays flat however
+// long the edit is (a 2-hour mix in one piece would need ~2.8 GB). Each clip decodes only the slice of its source
+// that falls in the chunk, plus PAD seconds of source either side: Web Audio places the slices sample-exactly, and the
+// time-stretcher (which holds back its last ~0.1 s of input) has its start-up and tail in the padding, so chunk seams
+// don't click or drop out.
+const CHUNK = 30
+const PAD = 0.5
+
+async function mixAudio(
+  p: Project,
+  media: Record<string, Media>,
+  duration: number,
+  out: AudioBufferSource,
+  signal: AbortSignal,
+  encoded: { t: number },
+) {
+  const parts = [...layoutVideo(p.video), ...layoutFree(p.overlay), ...layoutFree(p.audio)].filter(
+    ({ clip }) => media[clip.mediaId].hasAudio && clip.volume > 0 && !clip.muted,
+  )
+  // One demuxer per file for the whole export (saved clips of a file share it).
+  const inputs = new Map<File, { input: Input; track: Promise<InputAudioTrack | null> }>()
+  const trackOf = (file: File) => {
+    let r = inputs.get(file)
+    if (!r) {
+      const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
+      inputs.set(file, (r = { input, track: input.getPrimaryAudioTrack() }))
+    }
+    return r.track
   }
-  return ctx.startRendering()
+  try {
+    for (let t0 = 0; t0 < duration; t0 += CHUNK) {
+      // The mix stays at most a chunk ahead of the video: the muxer holds audio until the video reaches it.
+      while (encoded.t < t0 - CHUNK) {
+        signal.throwIfAborted()
+        await new Promise(r => setTimeout(r, 100))
+      }
+      signal.throwIfAborted()
+      const t1 = Math.min(duration, t0 + CHUNK)
+      const ctx = new OfflineAudioContext(2, Math.max(1, Math.round((t1 - t0) * SAMPLE_RATE)), SAMPLE_RATE)
+      for (const pl of parts) {
+        const a = Math.max(pl.start, t0)
+        const b = Math.min(pl.end, t1)
+        if (b <= a) continue
+        const track = await trackOf(media[pl.clip.mediaId].file)
+        if (!track) continue
+        const { speed, volume } = pl.clip
+        const from = sourceTime(pl, a)
+        const s0 = Math.max(0, from - PAD)
+        let buf = await decodeRange(track, s0, sourceTime(pl, b) + PAD)
+        if (speed !== 1) buf = timeStretch(buf, speed)
+        const src = new AudioBufferSourceNode(ctx, { buffer: buf })
+        src.connect(new GainNode(ctx, { gain: volume })).connect(ctx.destination)
+        src.start(a - t0, (from - s0) / speed, b - a)
+      }
+      await out.add(await ctx.startRendering()) // waits while the encoder is busy
+    }
+  } finally {
+    for (const { input } of inputs.values()) input.dispose()
+  }
 }
 
-// Decode only [from, to) of a file's audio track into one AudioBuffer.
-async function decodeRange(file: File, from: number, to: number): Promise<AudioBuffer | null> {
-  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
-  try {
-    const track = await input.getPrimaryAudioTrack()
-    if (!track) return null
-    const rate = await track.getSampleRate()
-    const channels = await track.getNumberOfChannels()
-    const out = new AudioBuffer({ length: Math.max(1, Math.round((to - from) * rate)), numberOfChannels: channels, sampleRate: rate })
-    for await (const { buffer, timestamp } of new AudioBufferSink(track).buffers(from, to)) {
-      const skip = Math.round((from - timestamp) * rate) // > 0 when the first packet starts before `from`
-      for (let c = 0; c < channels; c++) {
-        const data = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1))
-        if (skip > 0) out.copyToChannel(data.subarray(skip), c, 0)
-        else if (-skip < out.length) out.copyToChannel(data, c, -skip)
-      }
+// Decode only [from, to) of an audio track into one AudioBuffer.
+async function decodeRange(track: InputAudioTrack, from: number, to: number): Promise<AudioBuffer> {
+  const rate = await track.getSampleRate()
+  const channels = await track.getNumberOfChannels()
+  const out = new AudioBuffer({ length: Math.max(1, Math.round((to - from) * rate)), numberOfChannels: channels, sampleRate: rate })
+  for await (const { buffer, timestamp } of new AudioBufferSink(track).buffers(from, to)) {
+    const skip = Math.round((from - timestamp) * rate) // > 0 when the first packet starts before `from`
+    for (let c = 0; c < channels; c++) {
+      const data = buffer.getChannelData(Math.min(c, buffer.numberOfChannels - 1))
+      if (skip > 0) out.copyToChannel(data.subarray(skip), c, 0)
+      else if (-skip < out.length) out.copyToChannel(data, c, -skip)
     }
-    return out
-  } finally {
-    input.dispose()
   }
+  return out
 }
 
 // Pitch-preserving tempo change (WSOLA), so 2x speech sounds like 2x speech, not chipmunks.
