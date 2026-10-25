@@ -28,7 +28,13 @@ import { MEDIA_MIME, Timeline, zoomToFit, type Range } from './Timeline'
 import { dialogBackdrop, dialogPopup, Divider, ExportItems, ghost, FrameMenu, headerBtn, headerIcon, menuItem, OWN_KEYS, pill, popup, Select, Slider, Tip, toast, Toasts } from './ui'
 import './styles.css'
 
-const fmt = (t: number) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`
+// m:ss.ss, or h:mm:ss.ss from an hour on.
+const fmt = (t: number) => {
+  const cs = Math.round(t * 100)
+  const m = Math.floor(cs / 6000)
+  const ss = `${String(Math.floor((cs % 6000) / 100)).padStart(2, '0')}.${String(cs % 100).padStart(2, '0')}`
+  return m < 60 ? `${m}:${ss}` : `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}:${ss}`
+}
 const MOD = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
 const ZOOM_MIN = 2 // empty timeline; with clips, the zoom-out limit fits the whole edit
@@ -391,10 +397,15 @@ function App() {
 
   // Converting a file the browser can't decode: a toast shows how far it's got (closing it cancels), then the copy is
   // imported under the file's own name.
+  // One at a time: each holds a decoder and its finished copy in memory, so a pile of big files at once could run out.
+  const converting = useRef(Promise.resolve())
   async function convertFile(file: File, video: 'encode' | 'copy') {
     const ac = new AbortController()
+    const turn = converting.current
+    let next = () => {}
+    converting.current = new Promise<void>(ok => (next = ok))
     const id = toast.add({
-      title: `Converting ${file.name}`,
+      title: `Waiting to convert ${file.name}`,
       description: video === 'copy'
         ? "Its sound can't be played here, so it's being converted; the video is copied as it is."
         : "This browser can't decode it, so a playable copy is being made on this device. Long videos take a while.",
@@ -403,6 +414,9 @@ function App() {
     })
     let shown = -1
     try {
+      await turn
+      ac.signal.throwIfAborted()
+      toast.update(id, { title: `Converting ${file.name}` })
       const { convert } = await import('./convert') // the software decoder loads only now
       const c = await convert(file, video, share => {
         const pct = Math.floor(share * 100)
@@ -415,6 +429,8 @@ function App() {
       toast.close(id)
       play('error')
       toast.add({ title: `Couldn't convert ${file.name}`, description: (e as Error).message, type: 'error', timeout: 0 })
+    } finally {
+      next()
     }
   }
 

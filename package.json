@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
-    "test": "node src/model.check.ts"
+    "test": "node src/model.check.ts",
+    "fuzz": "node src/model.fuzz.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

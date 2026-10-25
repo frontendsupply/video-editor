@@ -74,14 +74,14 @@ export const clipLength = (c: Clip) => (c.out - c.in) / c.speed
 // 0:00:02.034: h:mm:ss plus `digits` decimals, rounded at that precision (so 2.034 doesn't print as 2.033)
 export function timecode(t: number, digits: 0 | 1 | 3 = 3) {
   const scale = 10 ** digits
-  const total = Math.round(Math.max(0, t) * scale)
+  const total = Math.round((Math.max(0, t) || 0) * scale) // NaN shows as 0
   const secs = Math.floor(total / scale)
   const base = `${Math.floor(secs / 3600)}:${String(Math.floor(secs / 60) % 60).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`
   return digits ? `${base}.${String(total % scale).padStart(digits, '0')}` : base
 }
 
 // Seconds between ruler labels at a zoom (pixels per second): at least 90 px apart, with a minor tick every fifth.
-export const tickStep = (pps: number) => [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600].find(s => s * pps >= 90) ?? 1200
+export const tickStep = (pps: number) => [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 14400].find(s => s * pps >= 90) ?? 28800
 // The time grid mouse edits land on at a zoom. Snapping on: the ruler's minor ticks, so times come out round. Off: the
 // finest of a frame, 0.1 s, 0.5 s, 1 s, 5 s, … that's at least 3 px wide. Zoomed out, the extra digits would only be
 // noise from the mouse position; milliseconds (frames) come in once a frame is wide enough to aim at.
@@ -90,7 +90,8 @@ export const gridFor = (pps: number, fps: number, snapping = false) =>
 // Decimals worth showing for times on that grid.
 export const digitsFor = (unit: number): 0 | 1 | 3 => (unit >= 1 ? 0 : unit >= 0.1 ? 1 : 3)
 // A length: seconds under a minute ("3.28s"), else h:mm:ss.
-export const lengthLabel = (s: number, digits: 0 | 1 | 3) => (s < 60 ? `${s.toFixed(Math.min(digits, 2))}s` : timecode(s, digits))
+export const lengthLabel = (s: number, digits: 0 | 1 | 3) =>
+  +s.toFixed(Math.min(digits, 2)) < 60 ? `${s.toFixed(Math.min(digits, 2))}s` : timecode(s, digits) // 59.999 is a minute
 
 // Video 1 is magnetic: clips play in array order, each right after the one before it plus its own gap.
 export function layoutVideo(video: Clip[]): Placed[] {
@@ -247,14 +248,15 @@ export const findPlaced = (p: Project, id: string | null) => layoutAll(p).find(x
 
 // What a split cuts: every track, one kind of track, or one clip (by id). 'video' is Video 1.
 export type SplitTarget = 'all' | 'video' | 'overlay' | 'audio' | (string & {})
-const EDGE = 0.05 // never leave slivers shorter than this at a clip edge
+const EDGE = 0.05 // a split at the playhead never leaves slivers shorter than this at a clip edge
+const EXACT = 1e-3 // ripple delete and crop cut where asked, so every track shifts by the same amount
 
-// Cut every targeted clip that t falls inside. Timeline positions don't change.
-export function splitAt(p: Project, t: number, which: SplitTarget = 'all'): Project {
+// Cut every targeted clip that t falls inside (by more than `edge`). Timeline positions don't change.
+export function splitAt(p: Project, t: number, which: SplitTarget = 'all', edge = EDGE): Project {
   const cuts = new Map<Clip, Clip[]>()
   const visit = (track: 'video' | 'overlay' | 'audio') => (x: Placed) => {
     if (which !== 'all' && which !== track && which !== x.clip.id) return
-    if (t <= x.start + EDGE || t >= x.end - EDGE) return
+    if (t <= x.start + edge || t >= x.end - edge) return
     const at = sourceTime(x, t)
     cuts.set(x.clip, [
       { ...x.clip, out: at },
@@ -267,20 +269,20 @@ export function splitAt(p: Project, t: number, which: SplitTarget = 'all'): Proj
   return cuts.size ? mapClips(p, c => cuts.get(c) ?? [c]) : p
 }
 
-export const splitRange = (p: Project, a: number, b: number, which: SplitTarget = 'all') =>
-  splitAt(splitAt(p, a, which), b, which)
+export const splitRange = (p: Project, a: number, b: number, which: SplitTarget = 'all', edge = EDGE) =>
+  splitAt(splitAt(p, a, which, edge), b, which, edge)
 
-// Remove [a, b) from every track and close the gap.
+// Remove [a, b) from every track and close the gap: everything after b moves left by exactly b - a, on every track.
 export function rippleDelete(p: Project, a: number, b: number): Project {
-  const q = splitRange(p, a, b)
-  const inside = (x: Placed) => x.start >= a - EDGE && x.end <= b + EDGE
+  const q = splitRange(p, a, b, 'all', EXACT)
+  const inside = (x: Placed) => x.start >= a - EXACT && x.end <= b + EXACT
   const free = (clips: Clip[]) =>
     layoutFree(clips)
       .filter(x => !inside(x))
-      .map(x => (x.start >= b - EDGE ? { ...x.clip, start: Math.max(0, x.clip.start - (b - a)) } : x.clip))
+      .map(x => (x.start >= b - EXACT ? { ...x.clip, start: Math.max(0, x.clip.start - (b - a)) } : x.clip))
   return {
     ...q,
-    video: packVideo(layoutVideo(q.video).filter(x => !inside(x)).map(x => ({ clip: x.clip, start: x.start >= b - EDGE ? x.start - (b - a) : x.start }))),
+    video: packVideo(layoutVideo(q.video).filter(x => !inside(x)).map(x => ({ clip: x.clip, start: x.start >= b - EXACT ? x.start - (b - a) : x.start }))),
     overlay: free(q.overlay),
     audio: free(q.audio),
   }
@@ -296,7 +298,7 @@ const MIN_LEN = 0.1
 export function trimClip(c: Clip, edge: 'in' | 'out', d: number, mediaDuration: number, anchor: boolean): Clip {
   if (edge === 'out') return { ...c, out: clamp(c.out + d * c.speed, c.in + MIN_LEN * c.speed, mediaDuration) }
   const lo = anchor ? Math.max(0, c.in - c.start * c.speed) : 0
-  const inn = clamp(c.in + d * c.speed, lo, c.out - MIN_LEN * c.speed)
+  const inn = clamp(c.in + d * c.speed, lo, Math.max(lo, c.out - MIN_LEN * c.speed)) // a clip already shorter stays put
   return { ...c, in: inn, start: anchor ? c.start + (inn - c.in) / c.speed : c.start }
 }
 

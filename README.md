@@ -6,10 +6,11 @@ Browser video editor that never uploads anything. Files are read straight from d
 pnpm install
 pnpm dev        # http://localhost:5173
 pnpm test       # timeline model self-check
+pnpm fuzz       # random edit sequences against the timeline model (pnpm fuzz 10000 80 for a longer run)
 pnpm build
 ```
 
-Browser smoke test (generates clips, edits, exports, verifies the MP4): with the dev server open, run `await (await import('/test/e2e.js')).run()` in the devtools console.
+Browser smoke test (generates clips, edits, exports, verifies the MP4): with the dev server open, run `await (await import('/test/e2e.js')).run()` in the devtools console. For stress tests, `test/make-media.sh` fills the git-ignored `test/media/` with odd, broken and long files (a 2-hour one, 60 small clips); `test/e2e.js` has helpers to load them into the editor.
 
 ## Why it's fast
 
