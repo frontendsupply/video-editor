@@ -287,7 +287,8 @@ export function Timeline(props: Props) {
 
   // Video 1 clips: drag sideways to slide the clip and everything after it, leaving a gap in front (Offset shows its new
   // start). Once its middle passes the end of the clip in front, it's carried alone and slots in where it's dropped.
-  // Up/down (when there are overlay tracks) carries it out to an overlay lane, shown as a ghost snapped to lanes.
+  // Over an overlay lane it's carried out there instead, shown as a ghost snapped to lanes. The lane under the pointer
+  // decides on every move, so a diagonal drag lands where it ends however it started.
   function grabMain(e: ReactPointerEvent, pl: Placed) {
     if (secondary(e, pl.clip.id)) return
     pick(pl.clip.id)
@@ -308,22 +309,24 @@ export function Timeline(props: Props) {
       const insert = t + len / 2 < front
       return { start: insert ? Math.max(0, t + alone([t, t + len], ev)) : Math.max(front, t + riding([t, t + len], ev)), insert }
     }
-    let mode: 'side' | 'cross' | null = null // decided after 5 px
+    let moved = false // past 5 px: a drag, not a click
     track(
       e,
       (dx, dy, ev) => {
-        mode ??= Math.hypot(dx, dy) < 5 ? null : project.overlayTracks && Math.abs(dy) > Math.abs(dx) ? 'cross' : 'side'
-        if (mode === 'cross') setDrag({ id: pl.clip.id, dx: snapped(dx, ev), dy: (laneAt(dy) + 1) * STEP.overlay })
-        if (mode === 'side') setSlide({ id: pl.clip.id, ...slid(dx, ev) })
+        moved ||= Math.hypot(dx, dy) >= 5
+        if (!moved) return
+        const lane = laneAt(dy)
+        setDrag(lane >= 0 ? { id: pl.clip.id, dx: snapped(dx, ev), dy: (lane + 1) * STEP.overlay } : null)
+        setSlide(lane < 0 ? { id: pl.clip.id, ...slid(dx, ev) } : null)
       },
       (dx, dy, ev) => {
         const lane = laneAt(dy)
-        const to = mode === 'side' ? slid(dx, ev) : null
+        const to = moved && lane < 0 ? slid(dx, ev) : null
         const t = pl.start + snapped(dx, ev) / pps
         showGuide(null)
         setDrag(null)
         setSlide(null)
-        if (mode === 'cross' && lane >= 0) onChange(moveVideoClip(base, pl.clip.id, lane, t))
+        if (moved && lane >= 0) onChange(moveVideoClip(base, pl.clip.id, lane, t))
         else if (to && Math.abs(to.start - pl.start) > 1e-6)
           onChange(to.insert ? moveVideoClip(base, pl.clip.id, -1, to.start) : slideVideoClip(base, pl.clip.id, to.start))
         else return // a click, or let go where it was
