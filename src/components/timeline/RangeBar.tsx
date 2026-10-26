@@ -41,7 +41,7 @@ export function RangeBar(props: {
       {range && (
         <div
           onPointerDown={e => props.onDrag(e, 'both')}
-          className="absolute inset-y-0 z-16 flex cursor-grab items-center justify-center overflow-hidden rounded-xs bg-accent px-2.5 text-[10px] font-semibold text-white tabular-nums active:cursor-grabbing"
+          className="absolute inset-y-0 z-16 flex cursor-grab items-center justify-center overflow-hidden rounded-xs bg-accent-solid px-2.5 text-[10px] font-semibold text-white tabular-nums active:cursor-grabbing"
           style={{ left: range.a * pps, width: Math.max(2, (range.b - range.a) * pps) }}
         >
           <span className="pointer-events-none truncate">

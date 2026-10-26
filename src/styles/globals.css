@@ -14,17 +14,38 @@
   /* Grey chrome, panels edge to edge split by 1px lines, square corners */
   --color-chrome: #e6e6e6; /* header and status bar */
   --color-canvas: #f1f1f1; /* side panels and panel headers (media bin, track names) */
-  --color-surface: #fbfbfb; /* content: the preview and the timeline lanes */
+  --color-content: #fbfbfb; /* the preview and the timeline lanes */
+  --color-surface: #fbfbfb; /* what sits on them: clips, popups, tooltips, dialogs, labels */
   --color-line: #d9d9d9; /* 1px lines between panels */
   --color-ink: #111111; /* text */
-  --color-muted: #0000008c; /* the lightest text (hints, labels, times): 55% black, still readable at 10-11 px */
+  --color-muted: #0000008f; /* the lightest text (hints, labels, times): 56% black, 4.5:1 even on the chrome */
   --color-accent: #ff2900; /* brand (the app icon red): selection, fills */
   --color-playhead: #ff2900;
+  /* The brand red is under 4.5:1 as small text and behind white text, so text uses these deeper reds */
+  --color-accent-ink: #cc1f00; /* red text */
+  --color-accent-solid: #cc1f00; /* a red fill behind white text, in both themes */
+  --color-audio: #047857; /* waveforms and audio icons */
+  --color-audio-bg: #ecfdf5; /* audio clips and strips */
   --radius-xs: 0;
   --radius-sm: 0;
   --radius-md: 0;
   --radius-lg: 0;
   --radius-xl: 0;
+}
+
+/* Dark: the same roles in blue-greys, lighter toward the chrome; the brand red stays. index.html sets data-theme before the first paint. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --color-chrome: #3b414d;
+  --color-canvas: #2f343e;
+  --color-content: #282c33;
+  --color-surface: #2f343e;
+  --color-line: #464b57;
+  --color-ink: #dce0e5;
+  --color-muted: #a9afbc;
+  --color-accent-ink: #ff8670;
+  --color-audio: #a1c181;
+  --color-audio-bg: #333d36;
 }
 
 @layer base {
@@ -56,7 +77,7 @@
   .toast[data-limited] { opacity: 0; }
   /* A waveform still being read: a soft light sweeps along the strip behind the bars drawn so far. */
   .wave-pending {
-    background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.9), transparent);
+    background-image: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-surface) 90%, transparent), transparent);
     background-size: 160px 100%;
     animation: wave-pending 1.2s linear infinite;
   }

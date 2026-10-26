@@ -38,7 +38,7 @@ export function MediaCard(props: {
           {m.thumb ? (
             <img src={m.thumb} alt="" className="size-full object-cover" />
           ) : (
-            <div className="grid size-full place-items-center bg-emerald-50 text-emerald-700"><Music size={16} /></div>
+            <div className="grid size-full place-items-center bg-audio-bg text-audio"><Music size={16} /></div>
           )}
           {/* on the timeline or not: uncheck to set its clips aside, check to put them back (or add it) */}
           <Tip label={used ? 'On the timeline · uncheck to set its clips aside' : parked ? 'Set aside · check to put its clips back' : 'Not on the timeline · check to add it'}>
@@ -48,14 +48,14 @@ export function MediaCard(props: {
               aria-label="On the timeline"
               className={cn(
                 'absolute top-1 left-1 grid size-4 place-items-center rounded-xs transition-[opacity,color]',
-                used ? 'bg-accent text-white' : 'bg-white/90 text-transparent ring-1 ring-ink/25 hover:text-muted',
+                used ? 'bg-accent text-white' : 'bg-surface/90 text-transparent ring-1 ring-ink/25 hover:text-muted',
                 !used && !parked && 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
               )}
             >
               <Check size={10} strokeWidth={3} />
             </button>
           </Tip>
-          {!m.image && <span className="absolute right-1 bottom-1 rounded-xs bg-white/90 px-1 text-[9px] font-medium tabular-nums">{clock(binLength(m))}</span>}
+          {!m.image && <span className="absolute right-1 bottom-1 rounded-xs bg-surface/90 px-1 text-[9px] font-medium tabular-nums">{clock(binLength(m))}</span>}
           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {m.hasVideo && (
               <Tip label="Append to the video track">

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } f
 import { ArrowLeftFromLine, ArrowRightFromLine, BookmarkPlus, ChevronLeft, ChevronRight, Music, Pause, Play, Plus } from 'lucide-react'
 import { lengthLabel, timecode, type Media } from '@/lib/model'
 import { OWN_KEYS } from '@/lib/utils'
+import { cssColor, useDark } from '@/lib/theme'
 import { headerBtn, headerIcon, primaryBtn, Tip } from '@/components/ui'
 
 export type Marks = { a: number; b: number }
@@ -110,7 +111,7 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
           ) : (
             <>
               <audio ref={ref} src={media.url} preload="auto" />
-              <span className="grid size-16 place-items-center bg-emerald-50 text-emerald-700"><Music size={22} /></span>
+              <span className="grid size-16 place-items-center bg-audio-bg text-audio"><Music size={22} /></span>
             </>
           )}
         </div>
@@ -161,18 +162,20 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
 // The file's waveform across the whole bar (the timeline's colors), so sound can be marked by ear and by eye.
 function Wave({ peaks }: { peaks: Float32Array }) {
   const ref = useRef<HTMLCanvasElement>(null)
+  const dark = useDark()
   useEffect(() => {
     const c = ref.current!
     const w = (c.width = Math.round(c.clientWidth * devicePixelRatio))
     const h = (c.height = Math.round(c.clientHeight * devicePixelRatio))
     const g = c.getContext('2d')!
-    g.fillStyle = 'rgb(4 120 87 / 0.5)'
+    g.fillStyle = cssColor('--color-audio')
+    g.globalAlpha = 0.5
     for (let x = 0; x < w; x++) {
       let p = 0
       for (let i = Math.floor((x / w) * peaks.length), end = Math.max(i + 1, Math.floor(((x + 1) / w) * peaks.length)); i < end; i++) p = Math.max(p, peaks[i])
       const bh = Math.max(1, p * h)
       g.fillRect(x, (h - bh) / 2, 1, bh)
     }
-  }, [peaks])
+  }, [peaks, dark])
   return <canvas ref={ref} className="pointer-events-none absolute inset-0 size-full" />
 }

@@ -34,7 +34,7 @@ export function Slider(props: {
           <BaseSlider.Thumb className="size-3 rounded-xs bg-surface ring-1 ring-ink/25 transition-shadow hover:ring-ink/45 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-ink" />
         </BaseSlider.Track>
       </BaseSlider.Control>
-      {props.format && <BaseSlider.Value className="w-8 text-[11px] text-ink/60 tabular-nums" />}
+      {props.format && <BaseSlider.Value className="w-8 text-[11px] text-muted tabular-nums" />}
     </BaseSlider.Root>
   )
 }

@@ -46,7 +46,7 @@ export function SequenceView(props: {
               exit={{ opacity: 0, scale: 0.98 }}
               onClick={props.onPick}
               data-cuelume-open=""
-              className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-ink/60 hover:border-ink/25"
+              className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-muted hover:border-ink/25"
             >
               <span className="grid size-12 place-items-center rounded-md bg-ink/6"><Upload size={18} /></span>
               <span className="text-sm font-semibold text-ink">Drop video, audio and image files here</span>
