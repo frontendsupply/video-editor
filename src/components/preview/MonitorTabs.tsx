@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { Tip } from '@/components/ui'
 
 const tab = '-mb-px flex items-center border-r border-line px-3 font-medium text-muted hover:text-ink'
-const active = 'bg-surface text-ink'
+const active = 'bg-content text-ink'
 
 export function MonitorTabs(props: {
   showing: 'sequence' | 'clip'

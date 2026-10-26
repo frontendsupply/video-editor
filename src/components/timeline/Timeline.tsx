@@ -534,7 +534,7 @@ export function Timeline(props: Props) {
   ]
 
   return (
-    <div className="flex shrink-0 flex-col overflow-hidden bg-surface select-none" style={{ height: props.height }}>
+    <div className="flex shrink-0 flex-col overflow-hidden bg-content select-none" style={{ height: props.height }}>
       {/* One scroll area for both directions: the track names stay pinned on the left, and the scrollbars sit in their
           own thin strips along the bottom and right edges, outside the tracks, so they're always in reach. */}
       <ScrollArea.Root className="relative min-h-0 flex-1 pr-2 pb-2">
@@ -542,7 +542,7 @@ export function Timeline(props: Props) {
         <div className="pointer-events-none absolute inset-y-0 left-0 w-28 border-r border-line bg-canvas" />
         <ScrollArea.Viewport ref={props.scrollRef} className="h-full overscroll-none">
           <ScrollArea.Content className="flex">
-            <div className="sticky left-0 z-40 w-28 shrink-0 border-r border-line bg-canvas pb-8 text-[11px] font-medium text-ink/60">
+            <div className="sticky left-0 z-40 w-28 shrink-0 border-r border-line bg-canvas pb-8 text-[11px] font-medium text-muted">
               <div className="flex h-6 items-center border-b border-line px-2.5 text-[10px] tracking-wide text-muted uppercase">Timeline</div>
               {rows.map(r => <div key={r.key} className={cn(r.size, r.band && 'border-y border-line')}>{r.header}</div>)}
             </div>
@@ -635,7 +635,7 @@ export function Timeline(props: Props) {
           <ScrollArea.Thumb className="w-full rounded-xs bg-ink/25 transition-colors hover:bg-ink/45 active:bg-ink/50" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
-      <div className="flex h-8 shrink-0 items-center gap-1 border-t border-line bg-chrome px-2">{props.footer}</div>
+      <div className="flex h-6 shrink-0 items-center gap-1 border-t border-line bg-chrome px-1.5">{props.footer}</div>
 
       <ConfirmDialog
         open={!!confirm?.open}

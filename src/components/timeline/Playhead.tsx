@@ -23,7 +23,7 @@ export function Playhead(props: {
       <span
         ref={props.labelRef}
         style={{ transform: 'translateX(var(--nudge, 0px))' }}
-        className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-surface px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-playhead tabular-nums ring-1 ring-playhead/25"
+        className="absolute top-1 left-1/2 -translate-x-1/2 rounded-sm bg-surface px-1.5 py-0.5 text-[10px] font-semibold whitespace-nowrap text-accent-ink tabular-nums ring-1 ring-playhead/25"
       >
         0:00:00.0
       </span>

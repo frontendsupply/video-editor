@@ -115,7 +115,7 @@ export function App() {
           onAddAudio={editor.addAudio}
         />
         <ResizeHandle size={binW} edge="right" min={220} max={innerWidth * 0.4} label="Resize media bin" onResize={setBinW} />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-surface">
+        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-content">
           <MonitorTabs
             showing={clip.monitor}
             clip={clip.file?.name ?? null}

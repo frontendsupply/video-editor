@@ -32,7 +32,7 @@ export function Toasts() {
               </span>
               <div className="grid min-w-0 flex-1 gap-0.5">
                 <Toast.Title className="text-xs font-semibold" />
-                <Toast.Description className="text-[11px] wrap-break-word whitespace-pre-line text-ink/55" />
+                <Toast.Description className="text-[11px] wrap-break-word whitespace-pre-line text-muted" />
                 {typeof t.data?.progress === 'number' && (
                   <Progress.Root value={Math.round(t.data.progress * 100)} aria-label="Progress" className="mt-1.5 flex items-center gap-2">
                     <Progress.Track className="h-1 flex-1 overflow-hidden bg-ink/10">

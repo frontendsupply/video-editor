@@ -1,8 +1,11 @@
 // The timeline's footer, in one row: the selected clip (name, times, speed and volume; a moved or resized picture's
-// Reset), or the selected range, or a hint; then the zoom controls.
-import { Film, ImageIcon, Maximize2, Music, ZoomIn, ZoomOut } from 'lucide-react'
+// Reset), or the selected range, or a hint; then the zoom controls and the light / dark toggle.
+import { useEffect } from 'react'
+import { play } from 'cuelume'
+import { Film, ImageIcon, Maximize2, Moon, Music, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { lengthLabel, timecode, type Clip, type Media, type Placed, type Range } from '@/lib/model'
 import { cn } from '@/lib/utils'
+import { cssColor, setDark, useDark } from '@/lib/theme'
 import { Divider, ghost, Select, Slider, Tip } from '@/components/ui'
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
@@ -72,6 +75,25 @@ export function TimelineFooter(props: {
       <Tip label="Zoom in">
         <button className={ghost} onClick={() => zoom.by(1.5)} disabled={props.empty}><ZoomIn size={14} /></button>
       </Tip>
+      <Divider />
+      <ThemeToggle />
     </>
+  )
+}
+
+// Light or dark, for the whole app. The browser's own bar (theme-color) follows the header's color.
+function ThemeToggle() {
+  const dark = useDark()
+  useEffect(() => document.querySelector('meta[name=theme-color]')?.setAttribute('content', cssColor('--color-chrome')), [dark])
+  return (
+    <Tip label={dark ? 'Light mode' : 'Dark mode'}>
+      <button
+        className={cn(ghost, "size-6 justify-center p-0")}
+        onClick={() => (play('toggle', { direction: dark ? 'back' : 'forward', emphasis: 'subtle' }), setDark(!dark))}
+        aria-label={dark ? 'Light mode' : 'Dark mode'}
+      >
+        {dark ? <Sun size={12} /> : <Moon size={12} />}
+      </button>
+    </Tip>
   )
 }

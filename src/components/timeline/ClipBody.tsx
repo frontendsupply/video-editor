@@ -15,7 +15,7 @@ export function ClipBody({ pl, media, width, view }: { pl: Placed; media: Media;
         style={{ backgroundImage: media.thumb ? `url(${media.thumb})` : undefined }}
       />
       {media.hasAudio && !pl.clip.muted && (
-        <div className={cn('relative h-3 shrink-0 overflow-hidden rounded-xs bg-emerald-50', reading(media) && 'wave-pending')}>
+        <div className={cn('relative h-3 shrink-0 overflow-hidden rounded-xs bg-audio-bg', reading(media) && 'wave-pending')}>
           {media.peaks && <Waveform peaks={media.peaks} done={media.peaksDone!} from={pl.clip.in} to={pl.clip.out} width={width} view={view} />}
         </div>
       )}
@@ -45,7 +45,7 @@ export function Handle({ side, onPointerDown }: { side: 'l' | 'r'; onPointerDown
 // An audio clip: waveform of its source range [in, out] and (on free lanes) its name.
 export function AudioBody({ pl, media, width, view, label }: { pl: Placed; media: Media; width: number; view: [number, number]; label?: boolean }) {
   return (
-    <div className={cn('relative h-full overflow-hidden rounded-md bg-emerald-50 ring-1 ring-emerald-700/15 group-data-selected:ring-2 group-data-selected:ring-accent', reading(media) && 'wave-pending')}>
+    <div className={cn('relative h-full overflow-hidden rounded-md bg-audio-bg ring-1 ring-audio/15 group-data-selected:ring-2 group-data-selected:ring-accent', reading(media) && 'wave-pending')}>
       {media.peaks && <Waveform peaks={media.peaks} done={media.peaksDone!} from={pl.clip.in} to={pl.clip.out} width={width} view={view} />}
       {label && (
         <Label>
@@ -61,7 +61,7 @@ export function AudioBody({ pl, media, width, view, label }: { pl: Placed; media
 const reading = (m: Media) => m.hasAudio && (m.peaksDone ?? 0) < 1
 
 const Label = ({ children }: { children: ReactNode }) => (
-  <span className="pointer-events-none absolute top-1.5 left-2.5 flex max-w-[calc(100%-20px)] items-center gap-1 truncate rounded-sm bg-white/85 px-1.5 py-px text-[10px] font-medium text-ink/80 backdrop-blur-sm">
+  <span className="pointer-events-none absolute top-1.5 left-2.5 flex max-w-[calc(100%-20px)] items-center gap-1 truncate rounded-sm bg-surface/85 px-1.5 py-px text-[10px] font-medium text-ink/80 backdrop-blur-sm">
     {children}
   </span>
 )

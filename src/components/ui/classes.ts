@@ -5,7 +5,7 @@ export const card = 'bg-surface ring-1 ring-line' // dialogs and toasts
 export const pill =
   'inline-flex h-8 items-center gap-1.5 rounded-md bg-ink/6 px-3 text-[11px] font-medium text-ink/70 transition-colors hover:bg-ink/10 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
 export const ghost =
-  'inline-flex h-7.5 items-center gap-1.5 rounded-md px-2.5 text-[11px] text-ink/55 transition-colors hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
+  'inline-flex h-7.5 items-center gap-1.5 rounded-md px-2.5 text-[11px] text-muted transition-colors hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
 // Header-sized controls: one slim row, small text and icons.
 export const headerBtn =
   'inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-[12px] text-ink/70 transition-colors hover:bg-ink/5 hover:text-ink disabled:pointer-events-none disabled:opacity-40'
@@ -15,7 +15,7 @@ export const headerIcon =
 export const primaryBtn = cn(headerBtn, 'bg-surface font-semibold text-ink ring-1 ring-line ring-inset') // the ring inside, so it's as tall as the rest
 // The confirming button of a dialog that removes something.
 export const dangerBtn =
-  'inline-flex h-8 items-center rounded-md bg-playhead/10 px-3 text-[11px] font-semibold text-playhead hover:bg-playhead/15'
+  'inline-flex h-8 items-center rounded-md bg-accent-ink/6 px-3 text-[11px] font-semibold text-accent-ink hover:bg-accent-ink/10'
 export const popup =
   'origin-(--transform-origin) rounded-lg bg-surface p-1 ring-1 ring-line outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0'
 export const menuItem =
@@ -26,7 +26,7 @@ export const fieldLabel = 'text-[11px] text-muted'
 export const kbd = 'font-sans text-[10px] text-muted'
 // Centered dialog (AlertDialog) over a dimmed, lightly blurred page.
 export const dialogBackdrop =
-  'fixed inset-0 bg-ink/20 backdrop-blur-[2px] transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0'
+  'fixed inset-0 bg-black/20 backdrop-blur-[2px] transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0'
 export const dialogPopup = cn(
   card,
   'fixed top-1/2 left-1/2 grid w-[min(380px,calc(100vw-32px))] -translate-x-1/2 -translate-y-1/2 gap-4 p-5 outline-none transition-[opacity,scale] duration-150 data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0',

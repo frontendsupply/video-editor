@@ -20,7 +20,7 @@ export function Ruler(props: {
       onPointerLeave={() => props.onHover(null)}
       className={cn('relative h-6 overflow-hidden border-b border-line', props.interactive && 'cursor-pointer')}
       style={{
-        backgroundImage: `repeating-linear-gradient(to right, rgb(29 29 32 / 0.14) 0 1px, transparent 1px ${(step * pps) / 5}px)`,
+        backgroundImage: `repeating-linear-gradient(to right, color-mix(in oklab, var(--color-ink) 14%, transparent) 0 1px, transparent 1px ${(step * pps) / 5}px)`,
         backgroundSize: '100% 5px',
         backgroundPosition: 'bottom',
         backgroundRepeat: 'repeat-x',

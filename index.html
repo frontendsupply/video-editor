@@ -20,6 +20,14 @@
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="400x400" href="/favicon.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <script>
+      // Light or dark before the first paint: the saved choice, else the system's.
+      {
+        let saved
+        try { saved = localStorage.getItem('theme') } catch {}
+        document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>
