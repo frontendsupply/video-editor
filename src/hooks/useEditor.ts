@@ -1,9 +1,9 @@
-// The project being edited, with its undo history, the selected clip and range, and the edits the toolbar, the
+// The project being edited, with its undo history, the selected clips and range, and the edits the toolbar, the
 // keyboard and the bin make on it.
 import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
 import { play } from 'cuelume'
 import {
-  cropRange, emptyProject, findPlaced, newClip, parkMedia, placeClip, projectDuration, removeClip, rippleDelete, splitAt, splitRange,
+  cropRange, emptyProject, findPlaced, mergeClips, newClip, parkMedia, placeClip, projectDuration, removeClip, rippleDelete, splitAt, splitRange,
   unparkMedia, updateClip, type Clip, type DropTarget, type Media, type Project, type Range, type SplitTarget,
 } from '@/lib/model'
 import type { Player } from '@/lib/player'
@@ -17,15 +17,15 @@ export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: 
   onCropped: (next: Project) => void
 }) {
   const [project, setProject, history] = useHistory<Project>(emptyProject())
-  const [selected, setSelected] = useState<string | null>(null)
+  const [selected, setSelected] = useState<string[]>([]) // clip ids, in the order they were picked
   const [range, setRange] = useState<Range | null>(null)
   const duration = projectDuration(project)
   const time = () => playerRef.current!.t
   const used = new Set([...project.video, ...project.overlay, ...project.audio].map(c => c.mediaId))
 
-  // The selected clip or range can disappear under an undo, or when the last clip goes.
+  // Selected clips or the range can disappear under an undo, a merge, or when the last clip goes.
   useEffect(() => {
-    if (selected && !findPlaced(project, selected)) setSelected(null)
+    if (!selected.every(id => findPlaced(project, id))) setSelected(s => s.filter(id => findPlaced(project, id)))
     if (!duration) setRange(null)
   }, [project])
 
@@ -33,7 +33,7 @@ export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: 
     seekAfter(seekTo)
     setProject(p)
   }
-  const patch = (c: Partial<Clip>) => setProject(p => updateClip(p, selected!, c))
+  const patch = (c: Partial<Clip>) => setProject(p => updateClip(p, selected[0], c)) // the footer shows it for one clip
   const undo = () => history.canUndo && (play('navigate', { direction: 'back', emphasis: 'subtle' }), history.undo())
   const redo = () => history.canRedo && (play('navigate', { direction: 'forward', emphasis: 'subtle' }), history.redo())
 
@@ -73,18 +73,21 @@ export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: 
     play('toggle', { direction: on ? 'back' : 'forward' })
     setProject(p => (on ? parkMedia(p, m.id) : unparkMedia(p, m)))
   }
-  // Delete: the selected range (ripple, all tracks) or else the selected clip.
+  // Delete: the selected range (ripple, all tracks) or else the selected clips.
   const del = () => {
     if (range) {
       play('close', { emphasis: 'strong' })
       change(rippleDelete(project, range.a, range.b), range.a)
       setRange(null)
-    } else if (selected) {
+    } else if (selected.length) {
       play('close', { emphasis: 'strong' })
-      setProject(p => removeClip(p, selected))
-      setSelected(null)
+      setProject(p => selected.reduce(removeClip, p))
+      setSelected([])
     }
   }
+  // Merge: the selected clips that follow on from each other, as a split left them, become one clip again.
+  const merged = mergeClips(project, selected)
+  const merge = merged === project ? null : () => (play('tap', { emphasis: 'strong' }), setProject(merged))
   // Crop: keep only the selected range on every track, then zoom to fit what's left.
   const crop = () => {
     if (!range) return
@@ -106,12 +109,12 @@ export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: 
     playerRef.current!.pause()
     setMedia({})
     history.reset(emptyProject())
-    setSelected(null)
+    setSelected([])
     setRange(null)
   }
 
   return {
     project, setProject, history, duration, used, selected, setSelected, range, setRange,
-    change, patch, undo, redo, split, place, appendVideo, addAudio, removeMedia, clipsOf, toggleMedia, del, crop, mark, newProject,
+    change, patch, undo, redo, split, place, appendVideo, addAudio, removeMedia, clipsOf, toggleMedia, del, merge, crop, mark, newProject,
   }
 }

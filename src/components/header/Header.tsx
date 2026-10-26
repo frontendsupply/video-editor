@@ -7,13 +7,15 @@ import { cn, MOD } from '@/lib/utils'
 import { Divider, headerBtn, headerIcon, popup, primaryBtn, Tip } from '@/components/ui'
 import { ExportItems } from '@/components/export/ExportItems'
 
+const DELETING = { region: 'Delete selection', clip: 'Delete selected clip', clips: 'Delete selected clips' }
+
 export function Header(props: {
   onNewProject: (() => void) | null // null when there's nothing to clear
   onAddMedia: () => void
   onUndo: (() => void) | null
   onRedo: (() => void) | null
   onDelete: (() => void) | null
-  deleting: 'region' | 'clip'
+  deleting: 'region' | 'clip' | 'clips'
   exporting: ComponentProps<typeof ExportItems> | null
 }) {
   return (
@@ -38,8 +40,8 @@ export function Header(props: {
           <Redo2 size={13} />
         </button>
       </Tip>
-      <Tip label={props.deleting === 'region' ? 'Delete selection (⌫)' : 'Delete selected clip (⌫)'}>
-        <button className={headerIcon} onClick={() => props.onDelete?.()} disabled={!props.onDelete} aria-label={props.deleting === 'region' ? 'Delete selection' : 'Delete selected clip'}>
+      <Tip label={`${DELETING[props.deleting]} (⌫)`}>
+        <button className={headerIcon} onClick={() => props.onDelete?.()} disabled={!props.onDelete} aria-label={DELETING[props.deleting]}>
           <Trash2 size={13} />
         </button>
       </Tip>

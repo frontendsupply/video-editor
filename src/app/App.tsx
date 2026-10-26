@@ -2,6 +2,7 @@
 // it, save it, bring files in and export.
 import { useEffect, useRef, useState } from 'react'
 import { bind, play } from 'cuelume'
+import { hotkeyKeyUX, hotkeyMacCompat, startKeyUX } from 'keyux'
 import { digitsFor, findPlaced, gridFor, projectDuration, trackName, updateClip, type Crop, type Media } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { plural } from '@/lib/utils'
@@ -59,6 +60,7 @@ export function App() {
   const exporter = useExport({ project, media, playerRef })
 
   useEffect(() => bind(), []) // sound data attributes on controls play UI sounds
+  useEffect(() => startKeyUX(window, [hotkeyKeyUX([hotkeyMacCompat()])]), []) // aria-keyshortcuts press their button (ctrl is ⌘ on a Mac)
 
   const seek = (t: number) => playerRef.current!.seek(t)
   const seekBy = (d: number) => seek(time() + d)
@@ -73,11 +75,12 @@ export function App() {
     play('open')
     setRemoving({ media: m, clips, open: true })
   }
-  const clearSelection = () => (editor.setRange(null), editor.setSelected(null))
+  const clearSelection = () => (editor.setRange(null), editor.setSelected([]))
 
   // Cropping the selected clip: its crop is set on the preview and kept with Done (one undo step), or dropped with
-  // Cancel, Esc, or selecting something else.
-  const sel = findPlaced(project, selected)
+  // Cancel, Esc, or selecting something else. The clip tools act on one clip, so not while several are selected.
+  const one = selected.length === 1 ? selected[0] : null
+  const sel = findPlaced(project, one)
   const startCrop = () => {
     if (time() < sel!.start || time() >= sel!.end) seek(sel!.start) // its picture on screen
     setCropping({ id: sel!.clip.id, crop: sel!.clip.crop ?? NO_CROP })
@@ -89,7 +92,7 @@ export function App() {
     setCropping(null)
   }
   useEffect(() => playerRef.current!.crop(cropping?.id ?? null), [cropping?.id])
-  useEffect(() => setCropping(c => (c?.id === selected ? c : null)), [selected])
+  useEffect(() => setCropping(c => (c?.id === one ? c : null)), [one])
 
   useShortcuts({
     undo: editor.undo,
@@ -116,8 +119,8 @@ export function App() {
         onAddMedia={importer.pick}
         onUndo={editor.history.canUndo ? editor.undo : null}
         onRedo={editor.history.canRedo ? editor.redo : null}
-        onDelete={range || selected ? editor.del : null}
-        deleting={range ? 'region' : 'clip'}
+        onDelete={range || selected.length ? editor.del : null}
+        deleting={range ? 'region' : selected.length > 1 ? 'clips' : 'clip'}
         exporting={duration > 0 && exporter.progress === null ? exportTo : null}
       />
 
@@ -157,8 +160,8 @@ export function App() {
               playerRef,
               project,
               media,
-              selected,
-              onSelect: editor.setSelected,
+              selected: one,
+              onSelect: id => editor.setSelected([id]),
               onTransform: (id, transform) => setProject(p => updateClip(p, id, { transform })),
             }}
             cropping={
@@ -186,7 +189,7 @@ export function App() {
             onSeekTo={seekTo}
             onSplit={editor.split}
             split={{
-              selected,
+              selected: one,
               video1: trackName(project, 'v1'),
               video: project.video.length > 0,
               overlays: project.overlayTracks > 0 ? project.overlay.length > 0 : null,
@@ -207,6 +210,7 @@ export function App() {
           selected={selected}
           range={range}
           onSelect={editor.setSelected}
+          onMerge={editor.merge}
           onRange={editor.setRange}
           onChange={editor.change}
           onSeek={seek}
@@ -230,6 +234,8 @@ export function App() {
           footer={
             <TimelineFooter
               selected={sel ?? null}
+              count={selected.length}
+              onMerge={editor.merge}
               media={media}
               range={range}
               digits={digits}

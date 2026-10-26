@@ -14,6 +14,7 @@
     "@ffmpeg/ffmpeg": "0.12.15",
     "cn": "0.5.0",
     "cuelume": "^0.2.8",
+    "keyux": "0.11.6",
     "lucide-react": "^1.61.0",
     "mediabunny": "^1.62.1",
     "motion": "^14.6.0",
