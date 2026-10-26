@@ -31,6 +31,7 @@ export class Player {
   private layers: Placed[] = [] // drawn in this order: Video 1, then overlays by lane
   private all: Placed[] = []
   private project: Project | null = null
+  private cropping: string | null = null // the clip being cropped, see crop()
   private duration = 0
   private wall = 0
   private raf = 0
@@ -187,10 +188,16 @@ export class Player {
     const on = this.layers.filter(x => this.t >= x.start && this.t < x.end && this.media[x.clip.mediaId].image)
     for (const pl of on.reverse()) {
       const m = this.media[pl.clip.mediaId]
-      const r = layerRect(m.width, m.height, W, H, this.project.fit, pl.clip.transform)
+      const r = layerRect(m.width, m.height, W, H, this.project.fit, pl.clip.transform, pl.clip.crop)
       if (u * W >= r.x && u * W <= r.x + r.w && v * H >= r.y && v * H <= r.y + r.h) return pl
     }
     return null
+  }
+
+  // While a clip is being cropped it shows alone and whole, fitted to the frame, for the crop box to lay over it.
+  crop(id: string | null) {
+    this.cropping = id
+    if (!this.playing) this.draw()
   }
 
   private picture(id: string) {
@@ -206,18 +213,21 @@ export class Player {
 
   private draw() {
     if (!this.project) return
-    const active = this.layers.filter(x => this.t >= x.start && this.t < x.end)
+    const on = this.layers.filter(x => this.t >= x.start && this.t < x.end)
+    const lone = on.find(x => x.clip.id === this.cropping)
+    const active = lone ? [lone] : on
     // every active video clip is in sync()'s `soon`, so it holds an element; a picture has its <img>
     const els = active.map(pl =>
       this.media[pl.clip.mediaId].image ? this.picture(pl.clip.mediaId) : (this.slots.find(s => s.clip === pl.clip.id)!.el as HTMLVideoElement),
     )
-    const transforms = active.map(pl => pl.clip.transform)
     // mid-seek or still loading: keep the last frame instead of flashing black
     if (els.some(el => (el instanceof HTMLImageElement ? !el.complete : el.readyState < 2))) return
     drawFrame(this.ctx, null, 0, 0, this.project.fit) // black base
     els.forEach((el, i) => {
       const [w, h] = el instanceof HTMLImageElement ? [el.naturalWidth, el.naturalHeight] : [el.videoWidth, el.videoHeight]
-      drawFrame(this.ctx, el, w, h, this.project!.fit, false, transforms[i])
+      const { transform, crop } = active[i].clip
+      if (lone) drawFrame(this.ctx, el, w, h, 'contain', false)
+      else drawFrame(this.ctx, el, w, h, this.project!.fit, false, transform, crop)
     })
   }
 }

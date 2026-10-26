@@ -3,7 +3,7 @@
 // to the frame's, with a guide line (⌥ places freely). The box shows only while its picture is on screen at the
 // playhead.
 import { useEffect, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
-import { findPlaced, layerRect, type Media, type Project, type Transform } from '@/lib/model'
+import { findPlaced, layerRect, type Media, type Placed, type Project, type Transform } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { clamp, cn } from '@/lib/utils'
 
@@ -35,24 +35,8 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
   const pl = selected ? findPlaced(project, selected) : null
   const picture = pl && media[pl.clip.mediaId].image ? pl : null
 
-  const [on, setOn] = useState(false)
-  useEffect(() => {
-    if (!picture) return setOn(false)
-    const at = (t: number) => setOn(t >= picture.start && t < picture.end)
-    at(playerRef.current!.t)
-    return playerRef.current!.watch(at)
-  }, [picture?.start, picture?.end])
-
-  // Where the canvas sits in the preview (it's centred and scaled to fit), to lay the handles over it.
-  const [view, setView] = useState({ x: 0, y: 0, w: 0, h: 0 })
-  useEffect(() => {
-    const c = canvasRef.current!
-    const measure = () => setView({ x: c.offsetLeft, y: c.offsetTop, w: c.offsetWidth, h: c.offsetHeight })
-    const ro = new ResizeObserver(measure)
-    ro.observe(c)
-    ro.observe(c.parentElement!)
-    return () => ro.disconnect()
-  }, [])
+  const on = useOnScreen(playerRef, picture)
+  const view = useCanvasView(canvasRef)
 
   // The frame lines a drag has snapped to, drawn while it lasts.
   const [guides, setGuides] = useState<{ x?: number; y?: number } | null>(null)
@@ -68,15 +52,17 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
     addEventListener('pointermove', move)
     addEventListener('pointerup', () => (removeEventListener('pointermove', move), setGuides(null)), { once: true })
   }
-  const start = (id: string) => findPlaced(project, id)!.clip.transform ?? { x: 0, y: 0, scale: 1 }
+  const clip = (id: string) => findPlaced(project, id)!.clip
+  const start = (id: string) => clip(id).transform ?? { x: 0, y: 0, scale: 1 }
   // The centre follows the pointer, kept inside the frame so the picture can't be lost off it; an edge or the centre
   // near the frame's snaps to it.
   const move = (e: ReactPointerEvent, id: string) => {
-    const m = media[findPlaced(project, id)!.clip.mediaId]
+    const { mediaId, crop } = clip(id)
+    const m = media[mediaId]
     const t0 = start(id)
     drag(e, (dx, dy, free) => {
       const t = { ...t0, x: clamp(t0.x + dx / view.w, -0.5, 0.5), y: clamp(t0.y + dy / view.h, -0.5, 0.5) }
-      const r = layerRect(m.width, m.height, view.w, view.h, project.fit, t)
+      const r = layerRect(m.width, m.height, view.w, view.h, project.fit, t, crop)
       const gx = free ? undefined : snapTo([r.x, r.x + r.w / 2, r.x + r.w], view.w)
       const gy = free ? undefined : snapTo([r.y, r.y + r.h / 2, r.y + r.h], view.h)
       setGuides({ x: gx?.at, y: gy?.at })
@@ -86,10 +72,11 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
   // A corner follows the pointer and the opposite one stays put; the picture keeps its shape.
   const resize = (e: ReactPointerEvent, id: string, sx: number, sy: number) => {
     e.stopPropagation()
-    const m = media[findPlaced(project, id)!.clip.mediaId]
+    const { mediaId, crop } = clip(id)
+    const m = media[mediaId]
     const t0 = start(id)
-    const fitted = layerRect(m.width, m.height, view.w, view.h, project.fit)
-    const r = layerRect(m.width, m.height, view.w, view.h, project.fit, t0)
+    const fitted = layerRect(m.width, m.height, view.w, view.h, project.fit, undefined, crop)
+    const r = layerRect(m.width, m.height, view.w, view.h, project.fit, t0, crop)
     const ax = sx > 0 ? r.x : r.x + r.w // the anchor: the opposite corner
     const ay = sy > 0 ? r.y : r.y + r.h
     const cx = sx > 0 ? r.x + r.w : r.x // the dragged corner, where the drag starts from
@@ -118,7 +105,7 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
   }
 
   const m = picture && media[picture.clip.mediaId]
-  const r = m && layerRect(m.width, m.height, view.w, view.h, project.fit, picture.clip.transform)
+  const r = m && layerRect(m.width, m.height, view.w, view.h, project.fit, picture.clip.transform, picture.clip.crop)
   return (
     <div className="absolute" style={{ left: view.x, top: view.y, width: view.w, height: view.h }} onPointerDown={pick}>
       {guides?.x !== undefined && (
@@ -145,4 +132,31 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
       )}
     </div>
   )
+}
+
+// Whether a clip is on screen at the playhead, kept up to date as the playhead moves.
+export function useOnScreen(playerRef: RefObject<Player | null>, pl: Placed | null) {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    if (!pl) return setOn(false)
+    const at = (t: number) => setOn(t >= pl.start && t < pl.end)
+    at(playerRef.current!.t)
+    return playerRef.current!.watch(at)
+  }, [pl?.start, pl?.end])
+  return on
+}
+
+// Where the canvas sits in the preview (it's centred and scaled to fit), to lay handles over it.
+export function useCanvasView(canvasRef: RefObject<HTMLCanvasElement | null>) {
+  const read = (c = canvasRef.current) => ({ x: c?.offsetLeft ?? 0, y: c?.offsetTop ?? 0, w: c?.offsetWidth ?? 0, h: c?.offsetHeight ?? 0 })
+  const [view, setView] = useState(() => read()) // a box opened over a canvas already there is placed at once
+  useEffect(() => {
+    const c = canvasRef.current!
+    const measure = () => setView(read(c))
+    const ro = new ResizeObserver(measure)
+    ro.observe(c)
+    ro.observe(c.parentElement!)
+    return () => ro.disconnect()
+  }, [])
+  return view
 }

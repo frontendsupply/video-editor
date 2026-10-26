@@ -7,7 +7,7 @@ import {
   getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
 } from 'mediabunny'
 import {
-  MIX_RATE, drawFrame, exportSize, laneOf, layerRect, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
+  MIX_RATE, cropSize, drawFrame, exportSize, laneOf, layerRect, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
   type ExportPreset, type Media, type Placed, type Project,
 } from '@/lib/model'
 
@@ -226,14 +226,19 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
       let decoded: VideoSample | null = null
       for (const l of layers) {
         if (f < l.first || f >= l.end) continue
+        // pictures and frames come cropped already, at their size as drawn
+        const { transform, crop } = l.pl.clip
+        const r = layerRect(l.m.width, l.m.height, W, H, p.fit, transform, crop)
+        const [cw, ch] = cropSize(l.m.width, l.m.height, crop)
+        const cut = crop && { left: Math.round(crop.l * l.m.width), top: Math.round(crop.t * l.m.height), width: Math.round(cw), height: Math.round(ch) }
         if (l.m.image) {
           let still = stills.get(l)
           if (!still) {
-            const r = layerRect(l.m.width, l.m.height, W, H, p.fit, l.pl.clip.transform) // its size as drawn
-            still = await createImageBitmap(l.m.file, { resizeWidth: Math.max(1, Math.round(r.w)), resizeHeight: Math.max(1, Math.round(r.h)), resizeQuality: 'high' })
+            const size: ImageBitmapOptions = { resizeWidth: Math.max(1, Math.round(r.w)), resizeHeight: Math.max(1, Math.round(r.h)), resizeQuality: 'high' }
+            still = await (cut ? createImageBitmap(l.m.file, cut.left, cut.top, cut.width, cut.height, size) : createImageBitmap(l.m.file, size))
             stills.set(l, still)
           }
-          drawFrame(ctx, still, l.m.width, l.m.height, p.fit, false, l.pl.clip.transform)
+          drawFrame(ctx, still, cw, ch, p.fit, false, transform)
           if (f === l.end - 1) still.close(), stills.delete(l)
           continue
         }
@@ -243,19 +248,18 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
           const track = (await input.getPrimaryVideoTrack())!
           // Constant output frame rate: one source lookup per output frame (handles speed up and slow-mo alike).
           const times = Array.from({ length: l.end - l.first }, (_, i) => sourceTime(l.pl, (l.first + i) / fps))
-          const asIs = video1Only && !l.pl.clip.transform && !(await track.getRotation()) && !(await track.getFlip()) &&
+          const asIs = video1Only && !transform && !crop && !(await track.getRotation()) && !(await track.getFlip()) &&
             [await track.getCodedWidth(), await track.getCodedHeight(), await track.getDisplayWidth(), await track.getDisplayHeight()].join() === [W, H, W, H].join()
           if (asIs) s = { input, frames: new VideoSampleSink(track).samplesAtTimestamps(times) }
           else {
-            // Decode straight to the final on-screen size (GPU resize + rotation) so big sources stay cheap.
-            const r = layerRect(l.m.width, l.m.height, W, H, p.fit, l.pl.clip.transform)
-            const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', poolSize: 2 })
+            // Decode straight to the final on-screen size (GPU crop, resize and rotation) so big sources stay cheap.
+            const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', crop: cut, poolSize: 2 })
             s = { input, frames: sink.canvasesAtTimestamps(times) }
           }
           open.set(l, s)
         }
         const { value: frame } = await s.frames.next()
-        if (!(frame instanceof VideoSample)) drawFrame(ctx, frame?.canvas ?? null, l.m.width, l.m.height, p.fit, false, l.pl.clip.transform)
+        if (!(frame instanceof VideoSample)) drawFrame(ctx, frame?.canvas ?? null, cw, ch, p.fit, false, transform)
         else if (frame.format === 'I420' || frame.format === 'NV12') decoded = frame // no alpha, nothing to convert
         else drawFrame(ctx, frame.toCanvasImageSource(), W, H, p.fit, false), frame.close()
         if (f === l.end - 1) await close(l)
