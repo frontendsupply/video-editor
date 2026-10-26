@@ -1,4 +1,4 @@
-# Local Video Editor
+# Video Editor
 
 Browser video editor that never uploads anything. Files are read straight from disk, and decoding/encoding runs on the GPU's hardware video engine.
 
