@@ -11,6 +11,7 @@ export function useShortcuts(actions: {
   del: () => void
   mark: (edge: 'in' | 'out') => void
   clear: () => void // the selection
+  confirm: () => void // Enter: finish what's in progress (a crop)
   seekBy: (seconds: number) => void
   seekTo: (where: 'start' | 'end') => void
   frame: number // seconds per frame
@@ -19,7 +20,7 @@ export function useShortcuts(actions: {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || (e.target as HTMLElement).closest(OWN_KEYS)) return
-      const { undo, redo, split, togglePlay, del, mark, clear, seekBy, seekTo, frame } = a.current
+      const { undo, redo, split, togglePlay, del, mark, clear, confirm, seekBy, seekTo, frame } = a.current
       const k = e.key.toLowerCase()
       if (e.metaKey || e.ctrlKey) {
         if (k === 'z') e.shiftKey ? redo() : undo()
@@ -36,6 +37,7 @@ export function useShortcuts(actions: {
       else if (k === 'i') mark('in')
       else if (k === 'o') mark('out')
       else if (k === 'escape') clear()
+      else if (k === 'enter') confirm()
       else if (k === 'arrowleft') seekBy(-(e.shiftKey ? 1 : frame))
       else if (k === 'arrowright') seekBy(e.shiftKey ? 1 : frame)
       else if (k === 'home') seekTo('start')

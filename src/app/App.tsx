@@ -2,7 +2,7 @@
 // it, save it, bring files in and export.
 import { useEffect, useRef, useState } from 'react'
 import { bind, play } from 'cuelume'
-import { digitsFor, findPlaced, gridFor, projectDuration, trackName, updateClip, type Media } from '@/lib/model'
+import { digitsFor, findPlaced, gridFor, projectDuration, trackName, updateClip, type Crop, type Media } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { plural } from '@/lib/utils'
 import { useClipPreview } from '@/hooks/useClipPreview'
@@ -20,6 +20,7 @@ import { ExportProgress } from '@/components/export/ExportProgress'
 import { FileDropOverlay } from '@/components/FileDropOverlay'
 import { Header } from '@/components/header/Header'
 import { ClipPreview } from '@/components/preview/ClipPreview'
+import { CropBar, NO_CROP } from '@/components/preview/CropBox'
 import { FrameMenu } from '@/components/preview/FrameMenu'
 import { MonitorTabs } from '@/components/preview/MonitorTabs'
 import { SequenceView } from '@/components/preview/SequenceView'
@@ -43,6 +44,7 @@ export function App() {
   // while the dialog animates out.
   const [removing, setRemoving] = useState<{ media: Media; clips: number; open: boolean } | null>(null)
   const [askNew, setAskNew] = useState(false)
+  const [cropping, setCropping] = useState<{ id: string; crop: Crop } | null>(null) // a clip's crop being set, not yet kept
   const time = () => playerRef.current!.t
 
   const { media, setMedia, readPeaks } = useMedia()
@@ -73,6 +75,22 @@ export function App() {
   }
   const clearSelection = () => (editor.setRange(null), editor.setSelected(null))
 
+  // Cropping the selected clip: its crop is set on the preview and kept with Done (one undo step), or dropped with
+  // Cancel, Esc, or selecting something else.
+  const sel = findPlaced(project, selected)
+  const startCrop = () => {
+    if (time() < sel!.start || time() >= sel!.end) seek(sel!.start) // its picture on screen
+    setCropping({ id: sel!.clip.id, crop: sel!.clip.crop ?? NO_CROP })
+  }
+  const keepCrop = () => {
+    if (!cropping) return
+    const { id, crop } = cropping
+    setProject(p => updateClip(p, id, { crop: Object.values(crop).some(Boolean) ? crop : undefined }))
+    setCropping(null)
+  }
+  useEffect(() => playerRef.current!.crop(cropping?.id ?? null), [cropping?.id])
+  useEffect(() => setCropping(c => (c?.id === selected ? c : null)), [selected])
+
   useShortcuts({
     undo: editor.undo,
     redo: editor.redo,
@@ -80,7 +98,8 @@ export function App() {
     togglePlay,
     del: editor.del,
     mark: editor.mark,
-    clear: clearSelection,
+    clear: () => (cropping ? setCropping(null) : clearSelection()),
+    confirm: keepCrop,
     seekBy,
     seekTo,
     frame: 1 / project.fps,
@@ -121,7 +140,13 @@ export function App() {
             clip={clip.file?.name ?? null}
             onShow={clip.show}
             onCloseClip={clip.close}
-            frameMenu={<FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />}
+            frameMenu={
+              cropping && sel ? (
+                <CropBar media={media[sel.clip.mediaId]} crop={cropping.crop} onCrop={crop => setCropping({ ...cropping, crop })} onCancel={() => setCropping(null)} onDone={keepCrop} />
+              ) : (
+                <FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />
+              )
+            }
           />
           {clip.monitor === 'clip' && clip.file && (
             <ClipPreview key={clip.file.id} media={clip.file} marks={clip.marks!} fps={project.fps} onMarks={clip.setMarks} onAdd={clip.add} onSave={clip.saveToBin} />
@@ -136,6 +161,11 @@ export function App() {
               onSelect: editor.setSelected,
               onTransform: (id, transform) => setProject(p => updateClip(p, id, { transform })),
             }}
+            cropping={
+              cropping && sel
+                ? { playerRef, placed: sel, media: media[sel.clip.mediaId], crop: cropping.crop, onCrop: crop => setCropping({ ...cropping, crop }) }
+                : null
+            }
             hidden={clip.monitor === 'clip'}
             empty={!duration}
             loaded={storage.loaded}
@@ -199,12 +229,14 @@ export function App() {
           scrollRef={scrollRef}
           footer={
             <TimelineFooter
-              selected={findPlaced(project, selected) ?? null}
+              selected={sel ?? null}
               media={media}
               range={range}
               digits={digits}
               empty={!duration}
               onPatch={editor.patch}
+              // the sound of a video, unlinked onto an audio track, has no picture to crop
+              onCrop={sel && !cropping && media[sel.clip.mediaId].hasVideo && !project.audio.includes(sel.clip) ? startCrop : null}
               zoom={zoom}
             />
           }

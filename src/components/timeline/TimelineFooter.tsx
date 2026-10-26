@@ -1,8 +1,8 @@
-// The timeline's footer, in one row: the selected clip (name, times, speed and volume; a moved or resized picture's
-// Reset), or the selected range, or a hint; then the zoom controls and the light / dark toggle.
+// The timeline's footer, in one row: the selected clip (name, times, Crop, speed and volume; a moved or resized
+// picture's Reset), or the selected range, or a hint; then the zoom controls and the light / dark toggle.
 import { useEffect } from 'react'
 import { play } from 'cuelume'
-import { Film, ImageIcon, Maximize2, Moon, Music, Sun, ZoomIn, ZoomOut } from 'lucide-react'
+import { Crop, Film, ImageIcon, Maximize2, Moon, Music, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { lengthLabel, timecode, type Clip, type Media, type Placed, type Range } from '@/lib/model'
 import { cn } from '@/lib/utils'
 import { cssColor, setDark, useDark } from '@/lib/theme'
@@ -17,6 +17,7 @@ export function TimelineFooter(props: {
   digits: 0 | 1 | 3
   empty: boolean
   onPatch: (c: Partial<Clip>) => void
+  onCrop: (() => void) | null // a clip with a picture, while it isn't being cropped
   zoom: { pps: number; lo: number; hi: number; set: (pps: number) => void; fit: () => void; by: (f: number) => void }
 }) {
   const { selected: sel, range, digits, zoom } = props
@@ -34,6 +35,14 @@ export function TimelineFooter(props: {
           )}
           <span className="max-w-48 truncate font-medium" title={m.name}>{m.name}</span>
           <span className="shrink-0 text-[10px] text-muted tabular-nums">{timecode(sel.start, digits)} → {timecode(sel.end, digits)}</span>
+          {props.onCrop && (
+            <>
+              <Divider />
+              <Tip label="Choose the part of the picture to keep">
+                <button className={cn(ghost, 'h-6 px-2')} onClick={props.onCrop}><Crop size={12} /> Crop</button>
+              </Tip>
+            </>
+          )}
           {m.image && sel.clip.transform && (
             <>
               <Divider />

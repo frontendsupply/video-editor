@@ -68,6 +68,12 @@ eq(layerRect(1920, 1080, 1920, 1080, 'contain'), fitRect(1920, 1080, 1920, 1080,
 const moved = { x: 0.1, y: 0, scale: 2 }
 eq(splitAt(proj([clip('pic', { transform: moved })]), 5).video.map(c => c.transform), [moved, moved], 'both halves of a split keep the transform')
 eq(outputSize({ ...p, aspect: 'original' }, { m: { width: 1081, height: 721 } as never }), [1080, 720], 'even size')
+// a crop: what's left is fitted as a whole picture, and an Original frame takes the first clip's cropped size
+const half = { l: 0.25, t: 0, r: 0.25, b: 0 }
+eq(layerRect(1920, 1080, 1920, 1080, 'contain', undefined, half), { x: 480, y: 0, w: 960, h: 1080 }, 'cropped to the middle half')
+eq(layerRect(1920, 1080, 1920, 1080, 'cover', undefined, half), { x: 0, y: -540, w: 1920, h: 2160 }, 'cropped and filled')
+eq(outputSize(proj([clip('a', { crop: { l: 0.1, t: 0.25, r: 0.2, b: 0.25 } })]), { m: { width: 1920, height: 1080 } as never }), [1344, 540], 'original frame cropped')
+eq(splitAt(proj([clip('a', { crop: half })]), 5).video.map(c => c.crop), [half, half], 'both halves of a split keep the crop')
 
 // export presets cap the short edge, keep aspect, stay even, never upscale
 const sq = { m: { width: 2160, height: 2160 } as never }
@@ -204,8 +210,9 @@ eq(
     plainCuts(proj([clip('a')], [clip('m', { start: 5, out: 10 })])), // music runs past the video
     plainCuts(proj([])),
     plainCuts(proj([clip('a', { transform: { x: 0, y: 0, scale: 0.5 } })])),
+    plainCuts(proj([clip('a', { crop: { l: 0.1, t: 0, r: 0, b: 0 } })])),
   ],
-  [true, false, false, false, false, false, false],
+  [true, false, false, false, false, false, false, false],
   'plain cuts',
 )
 
