@@ -12,7 +12,7 @@ import {
   removeTrack, renameTrack, slideVideoClip, snapPoints, snapShift, sourceEnd, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio,
   updateClip, type Clip, type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type Range, type SplitTarget,
 } from '@/lib/model'
-import { cn, plural } from '@/lib/utils'
+import { cn, MAC, plural } from '@/lib/utils'
 import { ConfirmDialog } from '@/components/ui'
 import { AudioBody, ClipBody, Handle } from './ClipBody'
 import { FIT, HEAD, MEDIA_MIME, ROOM, SNAP_PX, STEP, TILE } from './constants'
@@ -30,9 +30,10 @@ type Props = {
   media: Record<string, Media>
   pps: number // pixels per second (zoom)
   height: number
-  selected: string | null
+  selected: string[]
   range: Range | null
-  onSelect: (id: string | null) => void
+  onSelect: (ids: string[]) => void
+  onMerge: (() => void) | null // when selected clips can be merged
   onRange: (r: Range | null) => void
   onChange: (p: Project, seekTo?: number) => void
   onSeek: (t: number) => void
@@ -131,7 +132,7 @@ export function Timeline(props: Props) {
     showGuide(null)
     onSeek(t0)
     if (!ruler) {
-      onSelect(null)
+      onSelect([])
       onRange(null)
       setSelecting(true)
     }
@@ -198,18 +199,21 @@ export function Timeline(props: Props) {
     el.textContent = timecode(t, digits)
   }
 
-  function pick(id: string) {
-    if (id !== selected) play('select', { emphasis: 'subtle' })
+  function pick(ids: string[]) {
+    if (ids.join() !== selected.join()) play('select', { emphasis: 'subtle' })
     setMarking(false)
     onRange(null)
-    onSelect(id)
+    onSelect(ids)
   }
-  // A right-click (or Ctrl-click) only selects the clip, or inside the selected range keeps the range: the context menu
-  // then acts on it.
+  // Shift- or ⌘-click (Ctrl-click off a Mac) adds a clip to the selection or takes it out. A right-click (or Ctrl-click
+  // on a Mac) selects just the clip, unless it's already selected or inside the selected range: the context menu then
+  // acts on that. Neither drags the clip.
   const secondary = (e: ReactPointerEvent, id: string) => {
-    if (!e.button && !e.ctrlKey) return false
+    const context = e.button || (MAC && e.ctrlKey)
+    if (!context && !e.shiftKey && !(MAC ? e.metaKey : e.ctrlKey)) return false
     e.stopPropagation()
-    if (!inRange(e.clientX)) pick(id)
+    if (!context) pick(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
+    else if (!inRange(e.clientX) && !selected.includes(id)) pick([id])
     return true
   }
   // One right-click menu for the whole timeline: inside the selected range it acts on the range, on a clip on the clip.
@@ -238,7 +242,7 @@ export function Timeline(props: Props) {
       const start = free ? c.start : pl.start - (clip.gap ?? 0) + (c.gap ?? 0)
       return { c, start, edgeAt: edge === 'in' ? start : start + clipLength(c) }
     }
-    pick(clip.id)
+    pick([clip.id])
     track(
       e,
       (dx, _, ev) => {
@@ -268,7 +272,7 @@ export function Timeline(props: Props) {
       const s = pl.start + dx / pps
       return dx + snap([s, s + pl.end - pl.start], ev) * pps // either edge can lock on
     }
-    pick(pl.clip.id)
+    pick([pl.clip.id])
     track(
       e,
       (dx, dy, ev) => setDrag({ id: pl.clip.id, dx: snapped(dx, ev), dy: laneDelta(dy) * STEP[kind] }),
@@ -291,7 +295,7 @@ export function Timeline(props: Props) {
   // decides on every move, so a diagonal drag lands where it ends however it started.
   function grabMain(e: ReactPointerEvent, pl: Placed) {
     if (secondary(e, pl.clip.id)) return
-    pick(pl.clip.id)
+    pick([pl.clip.id])
     const base = project
     const placed = layoutVideo(base.video)
     const i = placed.findIndex(x => x.clip.id === pl.clip.id)
@@ -379,7 +383,7 @@ export function Timeline(props: Props) {
       <div
         key={pl.clip.id}
         data-clip={pl.clip.id}
-        data-selected={selected === pl.clip.id || undefined}
+        data-selected={selected.includes(pl.clip.id) || undefined}
         onPointerDown={e => moveFree(e, pl, kind)}
         className={cn('group absolute top-0 bottom-0 cursor-grab px-0.5 data-selected:z-10', d && 'z-30')}
         style={{ left: pl.start * pps, width: w, transform: d ? `translate(${d.dx}px, ${d.dy}px)` : undefined }}
@@ -465,7 +469,7 @@ export function Timeline(props: Props) {
               <div
                 key={pl.clip.id}
                 data-clip={pl.clip.id}
-                data-selected={selected === pl.clip.id || undefined}
+                data-selected={selected.includes(pl.clip.id) || undefined}
                 onPointerDown={e => grabMain(e, pl)}
                 className={cn(
                   'group relative h-full shrink-0 cursor-grab px-0.5 outline-none active:cursor-grabbing data-selected:z-10',
@@ -608,9 +612,11 @@ export function Timeline(props: Props) {
               <TimelineMenu
                 target={menu}
                 range={range}
+                selected={selected}
                 project={project}
                 media={media}
                 onSplit={() => props.onSplit('all')}
+                onMerge={props.onMerge}
                 onDeleteRange={props.onDeleteRange}
                 onCrop={props.onCrop}
                 onExport={props.onExport}
@@ -624,8 +630,8 @@ export function Timeline(props: Props) {
                 onSaveAudio={props.onSaveAudio}
                 onDeleteClip={id => {
                   play('close', { emphasis: 'strong' })
-                  onChange(removeClip(project, id))
-                  onSelect(null)
+                  onChange((selected.includes(id) ? selected : [id]).reduce(removeClip, project))
+                  onSelect([])
                 }}
               />
             </ContextMenu.Root>

@@ -1,17 +1,20 @@
-// The timeline's one right-click menu: inside the selected range it acts on the range, on a clip on that clip.
+// The timeline's one right-click menu: inside the selected range it acts on the range, on a clip on that clip (or on
+// all the selected clips, when it's one of them).
 import { ContextMenu } from '@base-ui/react/context-menu'
-import { ChevronRight, Crop, Download, FileAudio, Scissors, Trash2, Unlink } from 'lucide-react'
+import { ChevronRight, Crop, Download, FileAudio, Merge, Scissors, Trash2, Unlink } from 'lucide-react'
 import type { Clip, ExportPreset, Media, Placed, Project, Range } from '@/lib/model'
-import { cn } from '@/lib/utils'
+import { cn, MOD } from '@/lib/utils'
 import { kbd, menuItem, popup } from '@/components/ui'
 import { ExportItems } from '@/components/export/ExportItems'
 
 export function TimelineMenu(props: {
   target: Placed | 'range' | null
   range: Range | null
+  selected: string[]
   project: Project
   media: Record<string, Media>
   onSplit: () => void
+  onMerge: (() => void) | null
   onDeleteRange: () => void
   onCrop: () => void
   onExport: (preset: ExportPreset, region: Range) => void
@@ -23,6 +26,7 @@ export function TimelineMenu(props: {
   onDeleteClip: (id: string) => void
 }) {
   const { target, range, project, media } = props
+  const many = !!target && target !== 'range' && props.selected.length > 1 && props.selected.includes(target.clip.id)
   return (
     <ContextMenu.Portal>
       <ContextMenu.Positioner className="z-20 outline-none">
@@ -54,6 +58,11 @@ export function TimelineMenu(props: {
             </>
           ) : target && target !== 'range' ? (
             <>
+              {many && props.onMerge && (
+                <ContextMenu.Item className={menuItem} onClick={props.onMerge}>
+                  <span className="flex items-center gap-2"><Merge size={13} /> Merge clips</span><kbd className={kbd}>{MOD}J</kbd>
+                </ContextMenu.Item>
+              )}
               <ContextMenu.Item
                 className={menuItem}
                 // only a video clip that still carries its sound can unlink it
@@ -69,7 +78,7 @@ export function TimelineMenu(props: {
                 </ContextMenu.Item>
               )}
               <ContextMenu.Item className={menuItem} onClick={() => props.onDeleteClip(target.clip.id)}>
-                <span className="flex items-center gap-2"><Trash2 size={13} /> Delete clip</span><kbd className={kbd}>⌫</kbd>
+                <span className="flex items-center gap-2"><Trash2 size={13} /> {many ? 'Delete clips' : 'Delete clip'}</span><kbd className={kbd}>⌫</kbd>
               </ContextMenu.Item>
             </>
           ) : null}

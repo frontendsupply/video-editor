@@ -1,7 +1,7 @@
 // Run: pnpm test
 import {
   layoutVideo, projectDuration, sourceTime, splitAt, cropRange, layoutFree, splitRange, rippleDelete, timecode, gridFor, digitsFor, lengthLabel, trimClip, moveClip, fitRect, layerRect, outputSize, exportSize,
-  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep, nearestRate, sourceEnd, IMAGE_LENGTH,
+  addTrack, removeTrack, placeClip, emptyProject, laneOf, moveVideoClip, unlinkAudio, slideVideoClip, removeClip, layoutAll, trimVideoIn, parkMedia, unparkMedia, snapPoints, snapShift, renameTrack, trackName, sameFile, newClip, binLength, plainCuts, tickStep, nearestRate, sourceEnd, IMAGE_LENGTH, mergeClips,
   type Clip, type Project,
 } from '../src/lib/model/index.ts'
 
@@ -131,6 +131,16 @@ const gapC = slideVideoClip(p, 'c', 20) // a 0-10, b 10-12, gap, c 20-30
 eq(starts(moveVideoClip(gapC, 'b', -1, 14)), [[0, 10], [14, 16], [18, 28]], 'move into a gap: lands at t')
 eq(starts(moveVideoClip(gapC, 'b', -1, 0)), [[0, 2], [2, 12], [18, 28]], 'move to the front: pushes the first clip')
 eq(layoutAll(g).length, layoutAll(p).length, 'gaps add no clips')
+
+// merge undoes splits: pieces that follow on become one again, the rest stay as they are
+const cut = splitAt(splitAt(p, 4), 7) // a: 0-4, 4-7, 7-10
+const ids = cut.video.map(c => c.id)
+eq(mergeClips(cut, ids.slice(0, 3)).video.map(c => [c.id, c.in, c.out]), [[ids[0], 0, 10], ...p.video.slice(1).map(c => [c.id, c.in, c.out])], 'merge three pieces back')
+eq(starts(mergeClips(cut, ids.slice(1, 4))), [[0, 4], [4, 10], [10, 12], [12, 22]], 'merge stops at a different file')
+eq(mergeClips(cut, [ids[0], ids[2]]), cut, "pieces that aren't side by side don't merge")
+eq(mergeClips(removeClip(cut, ids[1]), [ids[0], ids[2]]), removeClip(cut, ids[1]), "a jump in the file doesn't merge")
+const au = splitAt(p, 18, 'audio')
+eq(mergeClips(au, au.audio.map(c => c.id)).audio.map(c => [c.start, c.in, c.out]), [[15, 0, 20]], 'merge audio pieces')
 
 // Video 1 left trim: the left edge follows the drag, the clip's end and the clips after it stay put
 const withB = (q: Project, b: Clip) => ({ ...q, video: q.video.map(c => (c.id === 'b' ? b : c)) })

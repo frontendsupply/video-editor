@@ -1,17 +1,20 @@
 // The timeline's footer, in one row: the selected clip (name, times, Crop, speed and volume; a moved or resized
-// picture's Reset), or the selected range, or a hint; then the zoom controls and the light / dark toggle.
+// picture's Reset), or several selected clips and Merge, or the selected range, or a hint; then the zoom controls and
+// the light / dark toggle.
 import { useEffect } from 'react'
 import { play } from 'cuelume'
-import { Crop, Film, ImageIcon, Maximize2, Moon, Music, Sun, ZoomIn, ZoomOut } from 'lucide-react'
+import { Crop, Film, ImageIcon, Maximize2, Merge, Moon, Music, Sun, ZoomIn, ZoomOut } from 'lucide-react'
 import { lengthLabel, timecode, type Clip, type Media, type Placed, type Range } from '@/lib/model'
-import { cn } from '@/lib/utils'
+import { cn, MAC, MOD, plural } from '@/lib/utils'
 import { cssColor, setDark, useDark } from '@/lib/theme'
 import { Divider, ghost, Select, Slider, Tip } from '@/components/ui'
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
 
 export function TimelineFooter(props: {
-  selected: Placed | null
+  selected: Placed | null // when it's the only one
+  count: number // clips selected
+  onMerge: (() => void) | null // when they can be merged
   media: Record<string, Media>
   range: Range | null
   digits: 0 | 1 | 3
@@ -24,7 +27,23 @@ export function TimelineFooter(props: {
   const m = sel && props.media[sel.clip.mediaId]
   return (
     <>
-      {sel && m && !range ? (
+      {props.count > 1 && !range ? (
+        <div className="flex min-w-0 items-center gap-1.5 pl-1 text-[11px]">
+          <span className="shrink-0 font-medium">{plural(props.count, { other: '# clips selected' })}</span>
+          {props.onMerge ? (
+            <>
+              <Divider />
+              <Tip label={`Join them into one clip (${MOD}J)`}>
+                {/* ctrl is ⌘ on a Mac */}
+                <button className={cn(ghost, 'h-6 px-2')} onClick={props.onMerge} aria-keyshortcuts="ctrl+j"><Merge size={12} /> Merge clips</button>
+              </Tip>
+              <span className="truncate text-[10px] text-muted">⌫ delete</span>
+            </>
+          ) : (
+            <span className="truncate text-[10px] text-muted">⌫ delete · to merge, select pieces of a split clip that sit side by side</span>
+          )}
+        </div>
+      ) : sel && m && !range ? (
         <div className="flex min-w-0 items-center gap-1.5 pl-1 text-[11px]">
           {m.image ? (
             <ImageIcon size={12} className="shrink-0 text-muted" />
@@ -70,7 +89,7 @@ export function TimelineFooter(props: {
             ? `Selection ${timecode(range.a, digits)} – ${timecode(range.b, digits)} (${lengthLabel(range.b - range.a, digits)}) · S split · ⌫ delete · right-click for more`
             : props.empty
               ? 'Add media to start editing'
-              : 'Drag in the Select bar to select · click the ruler to move the playhead · I / O mark the selection start / end'}
+              : `Drag in the Select bar to select · click the ruler to move the playhead · I / O mark the selection start / end · ⇧ or ${MAC ? '⌘' : 'Ctrl'}-click clips to select several`}
         </span>
       )}
       <div className="flex-1" />

@@ -1,8 +1,9 @@
 // Small helpers shared across the app.
 export { cn } from 'cn' // joins class names (conditionally) and settles conflicting utility classes: the last one wins
 
+export const MAC = /Mac|iPhone|iPad/.test(navigator.userAgent)
 // The shortcut modifier as it's labelled on this platform.
-export const MOD = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'
+export const MOD = MAC ? '⌘' : 'Ctrl+'
 
 // Keys inside these belong to the control, not to the editor shortcuts.
 export const OWN_KEYS =

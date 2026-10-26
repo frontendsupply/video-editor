@@ -49,6 +49,29 @@ export function splitAt(p: Project, t: number, which: SplitTarget = 'all', edge 
 export const splitRange = (p: Project, a: number, b: number, which: SplitTarget = 'all', edge = EDGE) =>
   splitAt(splitAt(p, a, which, edge), b, which, edge)
 
+// Undo splits: each run of the given clips that follow straight on from each other becomes one clip. They follow on when
+// they're pieces of the same file side by side on a track with no gap, each picking up where the one before ends, at
+// the same speed and all with their sound or all without. The first piece keeps its settings and grows to the last's end.
+export function mergeClips(p: Project, ids: string[]): Project {
+  const want = new Set(ids)
+  const grow = new Map<string, number>() // the first clip of a run → the out of its last
+  const gone = new Set<string>()
+  const joins = (x: Placed, y: Placed) =>
+    want.has(x.clip.id) && want.has(y.clip.id) && laneOf(x.clip) === laneOf(y.clip) && x.clip.mediaId === y.clip.mediaId &&
+    x.clip.speed === y.clip.speed && !x.clip.muted === !y.clip.muted && Math.abs(y.start - x.end) < 1e-6 && Math.abs(y.clip.in - x.clip.out) < 1e-6
+  const byLane = (clips: Clip[]) => layoutFree(clips).sort((x, y) => laneOf(x.clip) - laneOf(y.clip) || x.start - y.start)
+  for (const placed of [layoutVideo(p.video), byLane(p.overlay), byLane(p.audio)]) {
+    let first: string | undefined
+    placed.forEach((y, i) => {
+      if (!i || !joins(placed[i - 1], y)) return void (first = undefined)
+      first ??= placed[i - 1].clip.id
+      grow.set(first, y.clip.out)
+      gone.add(y.clip.id)
+    })
+  }
+  return gone.size ? mapClips(p, c => (gone.has(c.id) ? [] : [grow.has(c.id) ? { ...c, out: grow.get(c.id)! } : c])) : p
+}
+
 // Remove [a, b) from every track and close the gap: everything after b moves left by exactly b - a, on every track.
 export function rippleDelete(p: Project, a: number, b: number): Project {
   const q = splitRange(p, a, b, 'all', EXACT)
