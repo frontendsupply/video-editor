@@ -1,6 +1,6 @@
 // Cropping a clip on the sequence preview. While it's on, the player shows the clip alone and whole, and a box over it
-// marks the part that stays: drag a corner or an edge to cut that side, or the middle to move the box. The rest is
-// dimmed. The box shows only while the clip is on screen at the playhead; its bar sits in the preview's header.
+// marks the part that stays: drag a corner or an edge to cut that side (⇧ cuts the opposite side as much too, so the
+// box keeps its centre), or the middle to move the box. The rest is dimmed. The box shows only while the clip is on screen at the playhead; its bar sits in the preview's header.
 import type { PointerEvent as ReactPointerEvent, RefObject } from 'react'
 import { cropSize, fitRect, type Crop, type Media, type Placed } from '@/lib/model'
 import type { Player } from '@/lib/player'
@@ -14,8 +14,13 @@ const HANDLES = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [
 const MOVE = 2 // a drag's side for the middle: both sides together
 
 // One axis of a drag, moved by d (a share of the picture): the near and far sides (left and right, or top and bottom)
-// after it. side -1 moves the near one, 1 the far one, 0 neither, MOVE both.
-function axis(near: number, far: number, side: number, d: number): [number, number] {
+// after it. side -1 moves the near one, 1 the far one, 0 neither, MOVE both. even moves the other side by as much the
+// other way, until either one reaches the picture's edge.
+function axis(near: number, far: number, side: number, d: number, even: boolean): [number, number] {
+  if (even && (side === -1 || side === 1)) {
+    const e = clamp(-side * d, -Math.min(near, far), (1 - MIN - near - far) / 2)
+    return [near + e, far + e]
+  }
   if (side === -1) return [clamp(near + d, 0, 1 - far - MIN), far]
   if (side === 1) return [near, clamp(far - d, 0, 1 - near - MIN)]
   if (side !== MOVE) return [near, far]
@@ -41,8 +46,8 @@ export function CropBox({ canvasRef, playerRef, placed, media, crop, onCrop }: {
     if (!f.w || !f.h) return // not laid out yet
     const [x0, y0, c0] = [e.clientX, e.clientY, crop]
     const move = (ev: PointerEvent) => {
-      const [l, r] = axis(c0.l, c0.r, sx, (ev.clientX - x0) / f.w)
-      const [t, b] = axis(c0.t, c0.b, sy, (ev.clientY - y0) / f.h)
+      const [l, r] = axis(c0.l, c0.r, sx, (ev.clientX - x0) / f.w, ev.shiftKey)
+      const [t, b] = axis(c0.t, c0.b, sy, (ev.clientY - y0) / f.h, ev.shiftKey)
       onCrop({ l, t, r, b })
     }
     addEventListener('pointermove', move)
