@@ -1,12 +1,14 @@
 // Files the browser can't decode (an AVI, an old codec in an MKV, ProRes or HEVC where there's no decoder) are
 // converted once, on this device, into an MP4 it can play: H.264 video and AAC sound. That takes a software decoder:
-// a WebAssembly build (~30 MB, bundled, loaded only when such a file comes along). When only the sound is
+// a WebAssembly build (~30 MB, fetched only when such a file comes along). When only the sound is
 // the problem, the video is copied as it is, which is quick. The copy goes into the browser's private storage, so a
 // saved project finds it again after a reload.
 import { FFmpeg, FFFSType } from '@ffmpeg/ffmpeg'
 import coreURL from '@ffmpeg/core?url'
-import wasmURL from '@ffmpeg/core/wasm?url'
 import { convertedDir } from '@/lib/store'
+
+// Over the host's 25 MiB per-file limit, so it's fetched from the npm CDN at the installed version, not bundled.
+const wasmURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm/ffmpeg-core.wasm'
 
 export type Converted = { file: File; handle: FileSystemFileHandle; folder: string }
 
