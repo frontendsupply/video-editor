@@ -7,7 +7,9 @@ const LIMIT = 100
 // drag fires dozens of changes, however slowly) and a run of typing into one field. Each click or key is its own step.
 let gesture: { field?: EventTarget } | null = null
 addEventListener('pointerdown', () => (gesture = {}), true)
-for (const type of ['pointerup', 'pointercancel'])
+// A native drag (a file from the bin or the desktop) ends with drop or dragend; not every browser sends pointerup or
+// pointercancel for it.
+for (const type of ['pointerup', 'pointercancel', 'drop', 'dragend'])
   addEventListener(type, () => {
     const g = gesture // ended a task later, so the press's click or a drag's change on release still belongs to it
     setTimeout(() => gesture === g && (gesture = null))
@@ -24,7 +26,8 @@ export function useHistory<T>(initial: T) {
   const [s, setS] = useState({ past: [] as T[], present: initial, future: [] as T[], gesture: null as object | null })
 
   const set = useCallback((u: T | ((prev: T) => T)) => {
-    const g = current() // read now: the updater may run later
+    // Read now: the updater may run later. Work that finishes outside any event (an import) is always its own step.
+    const g = window.event ? current() : null
     setS(s => {
       const next = typeof u === 'function' ? (u as (prev: T) => T)(s.present) : u
       if (Object.is(next, s.present)) return s

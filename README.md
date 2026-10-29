@@ -228,26 +228,6 @@ last class wins).
 
 ## Roadmap
 
-Done lately:
-
-- **Crop**: keep part of a clip's picture, set with a box on the preview; preview and export crop the same way.
-- **Images**: JPEG, PNG, WebP, GIF, AVIF and BMP on any video track, with their own bin tab; moved and resized right on the preview; decoded once per clip in export.
-- **Exports copy more often**: a new project takes its first video's frame rate, and files whose first frame isn't at 0 still copy; a 4-hour 720p60 lesson exports in ~96 s instead of ~25 min.
-- **Faster rendered exports**: a frame that is just a file's own frame skips the canvas and goes to the encoder as decoded; a 2-hour 320×180 export takes 2 minutes instead of 10.
-- **Software decoding fallback**: files the browser can't decode are converted once on this device into a playable MP4.
-- **Lossless fast path**: plain cuts of files that share one encoding are copied packet for packet, no re-encoding.
-- **Export in a Worker**: video frames, encoding, muxing and file writes run off the page, so the editor stays responsive.
-- **Long exports**: the audio mix renders in 30-second chunks that keep pace with the video, decoding only each clip's slice, so hour-long exports use as little memory as short ones.
-- **Clip Preview**: mark In/Out on one file, add that part to the timeline or save it as a bin clip.
-- **Saving and restoring projects**: autosave on this device; files reconnect through their handles, or are matched by name and size when picked again.
-- **Selecting and cutting** across all tracks: the Select bar, range block, start/end marks, crop and region export.
-- **Gaps** on the magnetic Video 1 track, and left-edge trims that leave later clips in place.
-- **Waveforms** read in Web Workers, in parallel slices, with progress on the bin thumbnail.
-- **Bin checkbox** to set a file's clips aside and bring them back as they were; removing files.
-- **Snapping** that always lands on the ruler ticks or clip edges (⌥ places freely).
-- **Renamable tracks.**
-- **A compact interface**: square grey panels split by 1px lines, a slim header, one-row transport and clip settings, the frame menu on the preview.
-
 Next:
 
 1. **Text overlays**: add a layer to `drawFrame()`; preview and export get it for free.
