@@ -1,6 +1,6 @@
 // The editor's keyboard shortcuts (the usual ones for video editing). Keys typed into a control stay with it.
 import { useEffect } from 'react'
-import { OWN_KEYS } from '@/lib/utils'
+import { OWN_KEYS, OWN_MOD_KEYS } from '@/lib/utils'
 import { useLatest } from './useLatest'
 
 export function useShortcuts(actions: {
@@ -19,7 +19,7 @@ export function useShortcuts(actions: {
   const a = useLatest(actions)
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || (e.target as HTMLElement).closest(OWN_KEYS)) return
+      if (e.defaultPrevented || (e.target as HTMLElement).closest(e.metaKey || e.ctrlKey ? OWN_MOD_KEYS : OWN_KEYS)) return
       const { undo, redo, split, togglePlay, del, mark, clear, confirm, seekBy, seekTo, frame } = a.current
       const k = e.key.toLowerCase()
       if (e.metaKey || e.ctrlKey) {

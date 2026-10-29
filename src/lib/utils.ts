@@ -8,6 +8,8 @@ export const MOD = MAC ? '⌘' : 'Ctrl+'
 // Keys inside these belong to the control, not to the editor shortcuts.
 export const OWN_KEYS =
   'input, select, textarea, [role="combobox"], [role="listbox"], [role="option"], [role="menu"], [role="menuitem"], [role="tab"], [role="alertdialog"]'
+// ⌘ shortcuts (undo, redo, split) work on any control except a text field, which has its own undo, and a confirm dialog.
+export const OWN_MOD_KEYS = 'textarea, input:not([type="range"], [type="checkbox"]), [role="alertdialog"]'
 
 export const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 
