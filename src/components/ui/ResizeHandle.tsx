@@ -10,6 +10,7 @@ export function ResizeHandle(props: {
   max: number
   label: string
   onResize: (size: number) => void
+  className?: string
 }) {
   const x = props.edge === 'right'
   function drag(e: ReactPointerEvent) {
@@ -25,12 +26,20 @@ export function ResizeHandle(props: {
       onPointerDown={drag}
       aria-label={props.label}
       className={cn(
-        'relative z-10 shrink-0 bg-line transition-colors hover:bg-ink/40',
+        'relative z-10 shrink-0 touch-none bg-line transition-colors hover:bg-ink/40',
         x ? 'w-px cursor-col-resize' : 'h-px cursor-row-resize',
+        props.className,
       )}
     >
       {/* a wider grab area than the 1px line */}
-      <span className={cn('absolute', x ? 'inset-y-0 -right-1 -left-1' : 'inset-x-0 -top-1 -bottom-1')} />
+      <span
+        className={cn(
+          'absolute',
+          x
+            ? 'inset-y-0 -right-1 -left-1 pointer-coarse:-inset-x-3'
+            : 'inset-x-0 -top-1 -bottom-1 pointer-coarse:-inset-y-3',
+        )}
+      />
     </div>
   )
 }

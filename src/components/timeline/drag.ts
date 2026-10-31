@@ -10,8 +10,10 @@ export function track(e: ReactPointerEvent, move: Move, done?: Move) {
   const onUp = (ev: PointerEvent) => {
     removeEventListener('pointermove', onMove)
     removeEventListener('pointerup', onUp)
+    removeEventListener('pointercancel', onUp)
     done?.(ev.clientX - x0, ev.clientY - y0, ev)
   }
   addEventListener('pointermove', onMove)
   addEventListener('pointerup', onUp)
+  addEventListener('pointercancel', onUp) // a touch the browser took over as a scroll
 }

@@ -43,7 +43,7 @@ export function SequenceView(props: {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="absolute inset-3 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-line px-6 text-center"
+            className="absolute inset-3 flex flex-col items-center justify-center-safe gap-3 overflow-y-auto border-2 border-dashed border-line px-6 py-3 text-center max-md:inset-0 max-md:items-stretch max-md:gap-2.5 max-md:border-0 max-md:px-4 max-md:text-left"
           >
             <RestorePanel
               restore={props.restore}
@@ -62,9 +62,9 @@ export function SequenceView(props: {
               exit={{ opacity: 0, scale: 0.98 }}
               onClick={props.onPick}
               data-cuelume-open=""
-              className="absolute inset-3 flex flex-col items-center justify-center gap-3 rounded-md border-2 border-dashed border-line text-muted hover:border-ink/25"
+              className="absolute inset-3 flex flex-col items-center justify-center-safe gap-3 overflow-y-auto rounded-md px-6 py-3 text-center border-2 border-dashed border-line text-muted hover:border-ink/25"
             >
-              <span className="grid size-12 place-items-center rounded-md bg-ink/6">
+              <span className="grid size-12 shrink-0 place-items-center rounded-md bg-ink/6">
                 <Upload size={18} />
               </span>
               <span className="text-sm font-semibold text-ink">Drop video, audio and image files here</span>

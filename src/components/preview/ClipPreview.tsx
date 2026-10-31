@@ -147,7 +147,7 @@ export function ClipPreview({
         <div
           ref={bar}
           onPointerDown={e => drag(e, seek)}
-          className="relative h-6 cursor-pointer bg-ink/6"
+          className="relative h-6 cursor-pointer touch-none bg-ink/6"
           aria-label="Clip position"
         >
           {media.peaks && <Wave peaks={media.peaks} />}

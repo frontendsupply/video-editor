@@ -54,10 +54,36 @@
   #root {
     height: 100%;
   }
+  #root {
+    height: 100dvh;
+  } /* the visible area on a phone, as its browser bar shows and hides */
   html,
   body {
     overscroll-behavior: none;
   } /* a sideways swipe off the timeline's scroll must not navigate Back */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+  }
+  /* Controls answer a tap at once (no wait for a double-tap zoom), and a long press doesn't select their label */
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"] {
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  /* Under 16px, a phone zooms into the field on focus and stays there */
+  @media (pointer: coarse) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
+  }
   body {
     @apply bg-canvas text-ink font-sans text-xs antialiased overflow-hidden relative;
   }

@@ -120,7 +120,11 @@ export function PictureBox({
   const m = picture && media[picture.clip.mediaId]
   const r = m && layerRect(m.width, m.height, view.w, view.h, project.fit, picture.clip.transform, picture.clip.crop)
   return (
-    <div className="absolute" style={{ left: view.x, top: view.y, width: view.w, height: view.h }} onPointerDown={pick}>
+    <div
+      className="absolute touch-none"
+      style={{ left: view.x, top: view.y, width: view.w, height: view.h }}
+      onPointerDown={pick}
+    >
       {guides?.x !== undefined && (
         <span
           className="pointer-events-none absolute inset-y-0 w-px bg-accent"

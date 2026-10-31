@@ -89,7 +89,11 @@ export function CropBox({
               style={{ ...box, left: box.left - f.x, top: box.top - f.y, outline: '9999px solid rgb(0 0 0 / 0.6)' }}
             />
           </div>
-          <div onPointerDown={e => drag(e, MOVE, MOVE)} className="absolute cursor-move ring-1 ring-accent" style={box}>
+          <div
+            onPointerDown={e => drag(e, MOVE, MOVE)}
+            className="absolute cursor-move touch-none ring-1 ring-accent"
+            style={box}
+          >
             {HANDLES.map(([sx, sy]) => (
               <span
                 key={`${sx}${sy}`}

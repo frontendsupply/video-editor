@@ -23,6 +23,7 @@ import { useEditor } from '@/hooks/useEditor'
 import { useExport } from '@/hooks/useExport'
 import { useImport } from '@/hooks/useImport'
 import { useMedia } from '@/hooks/useMedia'
+import { phone } from '@/hooks/usePhone'
 import { usePlayer } from '@/hooks/usePlayer'
 import { useProjectStorage } from '@/hooks/useProjectStorage'
 import { useShortcuts } from '@/hooks/useShortcuts'
@@ -49,7 +50,8 @@ export function App() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const seekAfter = useRef<number | undefined>(undefined)
   const [viewW, setViewW] = useState(0) // visible width of the timeline's lanes
-  const [timelineH, setTimelineH] = useState(244)
+  // phones give the tracks more of the screen; the preview takes what's left
+  const [timelineH, setTimelineH] = useState(() => (phone.matches ? Math.round(innerHeight * 0.45) : 244))
   const [binW, setBinW] = useState(320)
   // Confirmations: a file with clips being removed, and New project. Closing only flips `open`, so the text stays
   // while the dialog animates out.
@@ -148,7 +150,7 @@ export function App() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)]">
       <input type="file" multiple accept="video/*,audio/*,image/*" hidden {...importer.input} />
       <Header
         onNewProject={Object.keys(media).length ? () => setAskNew(true) : null}
@@ -160,7 +162,7 @@ export function App() {
         exporting={duration > 0 && exporter.progress === null ? exportTo : null}
       />
 
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <MediaBin
           width={binW}
           media={media}
@@ -173,6 +175,7 @@ export function App() {
           onAddAudio={editor.addAudio}
         />
         <ResizeHandle
+          className="max-md:hidden"
           size={binW}
           edge="right"
           min={220}
@@ -180,7 +183,7 @@ export function App() {
           label="Resize media bin"
           onResize={setBinW}
         />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-content">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-content max-md:order-first max-md:border-b max-md:border-line">
           <MonitorTabs
             showing={clip.monitor}
             clip={clip.file?.name ?? null}

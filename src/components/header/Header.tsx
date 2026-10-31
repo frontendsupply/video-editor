@@ -20,7 +20,7 @@ export function Header(props: {
   exporting: ComponentProps<typeof ExportItems> | null
 }) {
   return (
-    <header className="flex h-8 shrink-0 items-center gap-0.5 border-b border-line bg-chrome px-1.5">
+    <header className="flex h-[calc(2rem+env(safe-area-inset-top))] shrink-0 items-center gap-0.5 border-b border-line bg-chrome px-1.5 pt-[env(safe-area-inset-top)]">
       <Tip label="New project">
         <button
           className={headerIcon}

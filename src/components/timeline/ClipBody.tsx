@@ -58,7 +58,7 @@ export function Handle({ side, onPointerDown }: { side: 'l' | 'r'; onPointerDown
     <div
       onPointerDown={onPointerDown}
       className={cn(
-        'absolute top-1/2 z-10 grid h-7 w-2.5 -translate-y-1/2 cursor-ew-resize place-items-center rounded-xs bg-surface opacity-0 ring-1 ring-line transition-opacity group-hover:opacity-100 group-data-selected:bg-accent group-data-selected:opacity-100 group-data-selected:ring-accent',
+        'absolute top-1/2 z-10 grid h-7 w-2.5 -translate-y-1/2 cursor-ew-resize touch-none place-items-center rounded-xs bg-surface opacity-0 ring-1 ring-line transition-opacity group-hover:opacity-100 group-data-selected:bg-accent group-data-selected:opacity-100 group-data-selected:ring-accent',
         side === 'l' ? 'left-0' : 'right-0',
       )}
     >

@@ -1,5 +1,5 @@
-// One file in the bin: its thumbnail and length, a checkbox for whether it's on the timeline, quick add buttons, and
-// a right-click menu. Drag it onto any lane; double-click to open it in Clip Preview (not a picture: it has no length).
+// One file in the bin, as a card or (on phones) a list row: its thumbnail and length, a checkbox for whether it's on
+// the timeline, quick add buttons, and a right-click menu. Drag it onto any lane; double-click to open it in Clip Preview (not a picture: it has no length).
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { play } from 'cuelume'
 import { Check, Film, MonitorPlay, Music, Trash2 } from 'lucide-react'
@@ -19,9 +19,75 @@ export function MediaCard(props: {
   onRemove: () => void
   onAppendVideo: () => void
   onAddAudio: () => void
+  list?: boolean // a striped list row instead of a card, on phones
 }) {
-  const { media: m, used, parked } = props
+  const { media: m, used, parked, list } = props
   const reading = m.hasAudio && (m.peaksDone ?? 0) < 1
+  const thumb = m.thumb ? (
+    <img src={m.thumb} alt="" className="size-full object-cover" />
+  ) : (
+    <div className="grid size-full place-items-center bg-audio-bg text-audio">
+      <Music size={list ? 11 : 16} />
+    </div>
+  )
+  // on the timeline or not: uncheck to set its clips aside, check to put them back (or add it)
+  const toggle = (
+    <Tip
+      label={
+        used
+          ? 'On the timeline · uncheck to set its clips aside'
+          : parked
+            ? 'Set aside · check to put its clips back'
+            : 'Not on the timeline · check to add it'
+      }
+    >
+      <button
+        onClick={props.onToggle}
+        aria-pressed={used}
+        aria-label="On the timeline"
+        className={cn(
+          'grid size-4 shrink-0 place-items-center rounded-xs transition-[opacity,color]',
+          used ? 'bg-accent text-white' : 'bg-surface/90 text-transparent ring-1 ring-ink/25 hover:text-muted',
+          !list && 'absolute top-1 left-1',
+          !list &&
+            !used &&
+            !parked &&
+            'opacity-0 group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
+        )}
+      >
+        <Check size={10} strokeWidth={3} />
+      </button>
+    </Tip>
+  )
+  const quickAdd = (
+    <>
+      {m.hasVideo && (
+        <Tip label="Append to the video track">
+          <button data-cuelume-tap="" className={quick} onClick={props.onAppendVideo}>
+            <Film size={10} />
+          </button>
+        </Tip>
+      )}
+      {m.hasAudio && (
+        <Tip label="Add audio at the playhead">
+          <button data-cuelume-tap="" className={quick} onClick={props.onAddAudio}>
+            <Music size={10} />
+          </button>
+        </Tip>
+      )}
+    </>
+  )
+  // the waveform being read: a thin bar along the bottom, so the thumbnail never changes size
+  const progress = reading && (
+    <Tip label={`Reading audio · ${Math.floor((m.peaksDone ?? 0) * 100)}%`}>
+      <span className="absolute inset-x-0 bottom-0 h-0.5 bg-ink/10">
+        <span
+          className="block h-full bg-emerald-600 transition-[width] duration-200"
+          style={{ width: `${(m.peaksDone ?? 0) * 100}%` }}
+        />
+      </span>
+    </Tip>
+  )
   return (
     <ContextMenu.Root onOpenChange={open => open && play('open', { emphasis: 'subtle' })}>
       {/* a native draggable, so the animated wrapper's drag props stay off */}
@@ -32,79 +98,43 @@ export function MediaCard(props: {
           e.dataTransfer.setData(MEDIA_MIME, m.id)
           e.dataTransfer.effectAllowed = 'copy'
         }}
-        className="cursor-grab active:cursor-grabbing"
+        className={cn('cursor-grab active:cursor-grabbing', list && 'flex h-8 items-center gap-2 px-2')}
       >
-        <div className="relative aspect-video overflow-hidden rounded-sm bg-ink/5 ring-1 ring-line">
-          {m.thumb ? (
-            <img src={m.thumb} alt="" className="size-full object-cover" />
-          ) : (
-            <div className="grid size-full place-items-center bg-audio-bg text-audio">
-              <Music size={16} />
+        {list ? (
+          <>
+            {toggle}
+            <div className="relative aspect-video h-5 shrink-0 overflow-hidden rounded-xs bg-ink/5 ring-1 ring-line">
+              {thumb}
+              {progress}
             </div>
-          )}
-          {/* on the timeline or not: uncheck to set its clips aside, check to put them back (or add it) */}
-          <Tip
-            label={
-              used
-                ? 'On the timeline · uncheck to set its clips aside'
-                : parked
-                  ? 'Set aside · check to put its clips back'
-                  : 'Not on the timeline · check to add it'
-            }
-          >
-            <button
-              onClick={props.onToggle}
-              aria-pressed={used}
-              aria-label="On the timeline"
-              className={cn(
-                'absolute top-1 left-1 grid size-4 place-items-center rounded-xs transition-[opacity,color]',
-                used ? 'bg-accent text-white' : 'bg-surface/90 text-transparent ring-1 ring-ink/25 hover:text-muted',
-                !used && !parked && 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
+            <span className="min-w-0 flex-1 truncate text-[11px]">{m.name}</span>
+            {!m.image && <span className="text-[10px] text-muted tabular-nums">{clock(binLength(m))}</span>}
+            <div className="flex gap-0.5">{quickAdd}</div>
+          </>
+        ) : (
+          <>
+            <div className="relative aspect-video overflow-hidden rounded-sm bg-ink/5 ring-1 ring-line">
+              {thumb}
+              {toggle}
+              {!m.image && (
+                <span className="absolute right-1 bottom-1 rounded-xs bg-surface/90 px-1 text-[9px] font-medium tabular-nums">
+                  {clock(binLength(m))}
+                </span>
               )}
-            >
-              <Check size={10} strokeWidth={3} />
-            </button>
-          </Tip>
-          {!m.image && (
-            <span className="absolute right-1 bottom-1 rounded-xs bg-surface/90 px-1 text-[9px] font-medium tabular-nums">
-              {clock(binLength(m))}
-            </span>
-          )}
-          <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 pointer-coarse:opacity-100">
+                {quickAdd}
+              </div>
+              {progress}
+            </div>
+            <div className="mt-1 truncate text-[11px]" title={m.name}>
+              {m.name}
+            </div>
             {m.hasVideo && (
-              <Tip label="Append to the video track">
-                <button data-cuelume-tap="" className={quick} onClick={props.onAppendVideo}>
-                  <Film size={10} />
-                </button>
-              </Tip>
+              <div className="text-[10px] text-muted tabular-nums">
+                {m.width}×{m.height}
+              </div>
             )}
-            {m.hasAudio && (
-              <Tip label="Add audio at the playhead">
-                <button data-cuelume-tap="" className={quick} onClick={props.onAddAudio}>
-                  <Music size={10} />
-                </button>
-              </Tip>
-            )}
-          </div>
-          {/* the waveform being read: a thin bar along the bottom, so the card never changes size */}
-          {reading && (
-            <Tip label={`Reading audio · ${Math.floor((m.peaksDone ?? 0) * 100)}%`}>
-              <span className="absolute inset-x-0 bottom-0 h-0.5 bg-ink/10">
-                <span
-                  className="block h-full bg-emerald-600 transition-[width] duration-200"
-                  style={{ width: `${(m.peaksDone ?? 0) * 100}%` }}
-                />
-              </span>
-            </Tip>
-          )}
-        </div>
-        <div className="mt-1 truncate text-[11px]" title={m.name}>
-          {m.name}
-        </div>
-        {m.hasVideo && (
-          <div className="text-[10px] text-muted tabular-nums">
-            {m.width}×{m.height}
-          </div>
+          </>
         )}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>

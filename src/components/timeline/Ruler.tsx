@@ -18,7 +18,10 @@ export function Ruler(props: {
       data-ruler
       onPointerMove={props.onHover}
       onPointerLeave={() => props.onHover(null)}
-      className={cn('relative h-6 overflow-hidden border-b border-line', props.interactive && 'cursor-pointer')}
+      className={cn(
+        'relative h-6 overflow-hidden border-b border-line',
+        props.interactive && 'cursor-pointer touch-none',
+      )}
       style={{
         backgroundImage: `repeating-linear-gradient(to right, color-mix(in oklab, var(--color-ink) 14%, transparent) 0 1px, transparent 1px ${(step * pps) / 5}px)`,
         backgroundSize: '100% 5px',

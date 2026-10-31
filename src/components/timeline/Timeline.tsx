@@ -6,7 +6,7 @@ import { ContextMenu } from '@base-ui/react/context-menu'
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
 import { play } from 'cuelume'
-import { ArrowLeftRight, Layers, Music, Plus } from 'lucide-react'
+import { Layers, Music, Plus } from 'lucide-react'
 import {
   type DragEvent,
   type MouseEvent as ReactMouseEvent,
@@ -432,7 +432,7 @@ export function Timeline(props: Props) {
         data-clip={pl.clip.id}
         data-selected={selected.includes(pl.clip.id) || undefined}
         onPointerDown={e => moveFree(e, pl, kind)}
-        className={cn('group absolute top-0 bottom-0 cursor-grab px-0.5 data-selected:z-10', d && 'z-30')}
+        className={cn('group absolute top-0 bottom-0 cursor-grab touch-none px-0.5 data-selected:z-10', d && 'z-30')}
         style={{ left: pl.start * pps, width: w, transform: d ? `translate(${d.dx}px, ${d.dy}px)` : undefined }}
       >
         {kind === 'overlay' ? (
@@ -494,11 +494,7 @@ export function Timeline(props: Props) {
           {
             key: 'sel',
             size: 'mt-1 h-5.5',
-            header: (
-              <div className={rowHead}>
-                <ArrowLeftRight size={13} /> Select
-              </div>
-            ),
+            header: null, // the bar says what it's for
             lane: (
               <RangeBar
                 range={range}
@@ -538,7 +534,7 @@ export function Timeline(props: Props) {
                 data-selected={selected.includes(pl.clip.id) || undefined}
                 onPointerDown={e => grabMain(e, pl)}
                 className={cn(
-                  'group relative h-full shrink-0 cursor-grab px-0.5 outline-none active:cursor-grabbing data-selected:z-10',
+                  'group relative h-full shrink-0 cursor-grab touch-none px-0.5 outline-none active:cursor-grabbing data-selected:z-10',
                   drag?.id === pl.clip.id && 'opacity-40',
                   moved && 'z-30',
                 )}
@@ -762,7 +758,9 @@ export function Timeline(props: Props) {
           <ScrollArea.Thumb className="w-full rounded-xs bg-ink/25 transition-colors hover:bg-ink/45 active:bg-ink/50" />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
-      <div className="flex h-6 shrink-0 items-center gap-1 border-t border-line bg-chrome px-1.5">{props.footer}</div>
+      <div className="flex h-[calc(1.5rem+env(safe-area-inset-bottom))] shrink-0 items-center gap-1 border-t border-line bg-chrome px-1.5 pb-[env(safe-area-inset-bottom)]">
+        {props.footer}
+      </div>
 
       <ConfirmDialog
         open={!!confirm?.open}
