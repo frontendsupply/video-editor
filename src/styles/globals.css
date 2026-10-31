@@ -1,16 +1,16 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* Variable font: one file covers every weight */
 @font-face {
-  font-family: 'Geist';
-  src: url('../assets/fonts/Geist[wght].woff2') format('woff2');
+  font-family: "Geist";
+  src: url("../assets/fonts/Geist[wght].woff2") format("woff2");
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 @theme {
-  --font-sans: 'Geist', system-ui, sans-serif;
+  --font-sans: "Geist", system-ui, sans-serif;
   /* Grey chrome, panels edge to edge split by 1px lines, square corners */
   --color-chrome: #e6e6e6; /* header and status bar */
   --color-canvas: #f1f1f1; /* side panels and panel headers (media bin, track names) */
@@ -34,7 +34,7 @@
 }
 
 /* Dark: the same roles in blue-greys, lighter toward the chrome; the brand red stays. index.html sets data-theme before the first paint. */
-:root[data-theme='dark'] {
+:root[data-theme="dark"] {
   color-scheme: dark;
   --color-chrome: #3b414d;
   --color-canvas: #2f343e;
@@ -49,12 +49,27 @@
 }
 
 @layer base {
-  html, body, #root { height: 100%; }
-  html, body { overscroll-behavior: none; } /* a sideways swipe off the timeline's scroll must not navigate Back */
-  body { @apply bg-canvas text-ink font-sans text-xs antialiased overflow-hidden relative; }
-  #root { isolation: isolate; } /* popups portal above the app */
-  button:not(:disabled) { cursor: pointer; }
-  :focus-visible { @apply outline-2 outline-offset-2 outline-ink; }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  html,
+  body {
+    overscroll-behavior: none;
+  } /* a sideways swipe off the timeline's scroll must not navigate Back */
+  body {
+    @apply bg-canvas text-ink font-sans text-xs antialiased overflow-hidden relative;
+  }
+  #root {
+    isolation: isolate;
+  } /* popups portal above the app */
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-ink;
+  }
 }
 
 /* Toasts stack at the bottom right and fan out on hover; the toast component sets the --toast-* vars. */
@@ -65,28 +80,63 @@
     --scale: calc(max(0, 1 - (var(--toast-index) * 0.08)));
     --height: var(--toast-frontmost-height, var(--toast-height));
     --offset-y: calc(var(--toast-offset-y) * -1 + var(--toast-index) * var(--gap) * -1 + var(--toast-swipe-movement-y));
-    position: absolute; right: 0; bottom: 0; width: 100%; height: var(--height);
-    z-index: calc(100 - var(--toast-index)); transform-origin: bottom center;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: var(--height);
+    z-index: calc(100 - var(--toast-index));
+    transform-origin: bottom center;
     transform: translateX(var(--toast-swipe-movement-x))
-      translateY(calc(var(--toast-swipe-movement-y) - var(--toast-index) * var(--peek) - (1 - var(--scale)) * var(--height)))
+      translateY(
+        calc(var(--toast-swipe-movement-y) - var(--toast-index) * var(--peek) - (1 - var(--scale)) * var(--height))
+      )
       scale(var(--scale));
-    transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s, height 0.15s;
+    transition:
+      transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.4s,
+      height 0.15s;
   }
-  .toast[data-expanded] { transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y)); height: var(--toast-height); }
-  .toast[data-starting-style], .toast[data-ending-style] { transform: translateY(150%); opacity: 0; }
-  .toast[data-limited] { opacity: 0; }
+  .toast[data-expanded] {
+    transform: translateX(var(--toast-swipe-movement-x)) translateY(var(--offset-y));
+    height: var(--toast-height);
+  }
+  .toast[data-starting-style],
+  .toast[data-ending-style] {
+    transform: translateY(150%);
+    opacity: 0;
+  }
+  .toast[data-limited] {
+    opacity: 0;
+  }
   /* A waveform still being read: a soft light sweeps along the strip behind the bars drawn so far. */
   .wave-pending {
-    background-image: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-surface) 90%, transparent), transparent);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--color-surface) 90%, transparent),
+      transparent
+    );
     background-size: 160px 100%;
     animation: wave-pending 1.2s linear infinite;
   }
   @media (prefers-reduced-motion: reduce) {
-    .wave-pending { animation: none; }
+    .wave-pending {
+      animation: none;
+    }
   }
-  .toast::after { content: ''; position: absolute; top: 100%; left: 0; width: 100%; height: calc(var(--gap) + 1px); }
+  .toast::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: calc(var(--gap) + 1px);
+  }
 }
 
 @keyframes wave-pending {
-  to { background-position: 160px 0; }
+  to {
+    background-position: 160px 0;
+  }
 }

@@ -10,7 +10,9 @@ export function useMedia() {
   // share it.
   const readPeaks = useCallback((m: Media) => {
     const wave = (patch: Partial<Media>) =>
-      setMedia(ms => Object.fromEntries(Object.entries(ms).map(([id, x]) => [id, x.file === m.file ? { ...x, ...patch } : x])))
+      setMedia(ms =>
+        Object.fromEntries(Object.entries(ms).map(([id, x]) => [id, x.file === m.file ? { ...x, ...patch } : x])),
+      )
     computePeaks(m.file, m.duration, (peaks, done) => wave({ peaks, peaksDone: done }))
       .then(peaks => wave({ peaks, peaksDone: 1 }))
       .catch(() => wave({ peaks: undefined, peaksDone: 1 })) // the waveform is decoration; playback and export don't need it

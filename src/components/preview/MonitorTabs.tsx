@@ -1,9 +1,10 @@
 // The preview panel's tabs: Sequence preview, and Clip Preview while a file is open in it (closable). The output
 // frame menu sits on the right while the sequence shows.
-import type { ReactNode } from 'react'
+
 import { MonitorPlay, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import type { ReactNode } from 'react'
 import { Tip } from '@/components/ui'
+import { cn } from '@/lib/utils'
 
 const tab = '-mb-px flex items-center border-r border-line px-3 font-medium text-muted hover:text-ink'
 const active = 'bg-content text-ink'
@@ -27,7 +28,11 @@ export function MonitorTabs(props: {
             <span className="max-w-48 truncate">{props.clip}</span>
           </button>
           <Tip label="Close Clip Preview">
-            <button onClick={props.onCloseClip} aria-label="Close Clip Preview" className="grid size-4 place-items-center text-muted hover:bg-ink/10 hover:text-ink">
+            <button
+              onClick={props.onCloseClip}
+              aria-label="Close Clip Preview"
+              className="grid size-4 place-items-center text-muted hover:bg-ink/10 hover:text-ink"
+            >
               <X size={11} />
             </button>
           </Tip>

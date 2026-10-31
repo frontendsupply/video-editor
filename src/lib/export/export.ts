@@ -1,7 +1,16 @@
 // Exporting to MP4, the page's side: starts the export worker and renders the audio mix for it. Also saves one clip's sound.
 import { ALL_FORMATS, AudioBufferSink, BlobSource, Input, type InputAudioTrack } from 'mediabunny'
 import { SimpleFilter, SoundTouch, WebAudioBufferSource } from 'soundtouchjs'
-import { MIX_RATE, layoutFree, layoutVideo, projectDuration, sourceTime, type ExportPreset, type Media, type Project } from '@/lib/model'
+import {
+  type ExportPreset,
+  layoutFree,
+  layoutVideo,
+  type Media,
+  MIX_RATE,
+  type Project,
+  projectDuration,
+  sourceTime,
+} from '@/lib/model'
 import type { FromAudioWorker, ToAudioWorker } from './audio.worker'
 import type { ExportMedia, FromWorker, ToWorker } from './export.worker'
 
@@ -30,7 +39,8 @@ export async function exportProject(
     worker.onmessage = ({ data }: MessageEvent<FromWorker>) => {
       if (data.type === 'progress') (encoded.t = data.t), (share.video = data.fraction), report()
       else if (data.type === 'audio-ok') next()
-      else if (data.type === 'done') ok({ blob: data.buffer && new Blob([data.buffer], { type: 'video/mp4' }), lossless: data.lossless })
+      else if (data.type === 'done')
+        ok({ blob: data.buffer && new Blob([data.buffer], { type: 'video/mp4' }), lossless: data.lossless })
       else fail(signal.aborted ? signal.reason : new Error(data.message))
     }
     worker.onerror = e => fail(new Error(e.message))
@@ -38,7 +48,12 @@ export async function exportProject(
   const cancel = () => send({ type: 'cancel' })
   signal.addEventListener('abort', cancel)
   // The worker needs only the files and their sizes, not thumbnails or waveforms.
-  const files = Object.fromEntries(Object.entries(media).map(([id, m]) => [id, { file: m.file, width: m.width, height: m.height, image: m.image } satisfies ExportMedia]))
+  const files = Object.fromEntries(
+    Object.entries(media).map(([id, m]) => [
+      id,
+      { file: m.file, width: m.width, height: m.height, image: m.image } satisfies ExportMedia,
+    ]),
+  )
   send({ type: 'start', job: { p, media: files, file, preset, frame, audio } })
   try {
     // Audio mixes while the video encodes, a chunk at a time; each chunk waits for the encoder to take the last one.
@@ -50,7 +65,8 @@ export async function exportProject(
         data.set(buf.getChannelData(1), buf.length)
         send({ type: 'audio', data, timestamp }, [data.buffer])
       })
-    const mixed = audio && mixAudio(p, media, projectDuration(p), chunk, signal, encoded).then(() => send({ type: 'audio-end' }))
+    const mixed =
+      audio && mixAudio(p, media, projectDuration(p), chunk, signal, encoded).then(() => send({ type: 'audio-end' }))
     return (await Promise.all([done, mixed]))[0]
   } finally {
     signal.removeEventListener('abort', cancel)
@@ -149,7 +165,11 @@ async function mixAudio(
 async function decodeRange(track: InputAudioTrack, from: number, to: number): Promise<AudioBuffer> {
   const rate = await track.getSampleRate()
   const channels = await track.getNumberOfChannels()
-  const out = new AudioBuffer({ length: Math.max(1, Math.round((to - from) * rate)), numberOfChannels: channels, sampleRate: rate })
+  const out = new AudioBuffer({
+    length: Math.max(1, Math.round((to - from) * rate)),
+    numberOfChannels: channels,
+    sampleRate: rate,
+  })
   for await (const { buffer, timestamp } of new AudioBufferSink(track).buffers(from, to)) {
     const skip = Math.round((from - timestamp) * rate) // > 0 when the first packet starts before `from`
     for (let c = 0; c < channels; c++) {

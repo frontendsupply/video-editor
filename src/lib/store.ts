@@ -1,9 +1,14 @@
 // The open project is kept in IndexedDB, so a reload or a closed tab picks up where you left off. Files stay where
 // they are on disk: each one keeps a file handle (Chromium) to read it again, or is matched by name and size when
 // it's picked again. Thumbnails and finished waveforms are stored too, so nothing is read twice.
-import { sameFile, type Media, type Project } from '@/lib/model'
+import { type Media, type Project, sameFile } from '@/lib/model'
 
-export type SavedMedia = Omit<Media, 'file' | 'url' | 'thumb'> & { fileName: string; size: number; lastModified: number; thumb?: Blob }
+export type SavedMedia = Omit<Media, 'file' | 'url' | 'thumb'> & {
+  fileName: string
+  size: number
+  lastModified: number
+  thumb?: Blob
+}
 // A file picked or read again is the saved one when its name (the file's, not a saved clip's) and size match.
 export const isFileOf = (m: SavedMedia, file: File) => sameFile({ name: m.fileName ?? m.name, size: m.size }, file)
 export type Saved = { project: Project; media: SavedMedia[]; savedAt: number }
@@ -18,8 +23,10 @@ const open = () =>
     r.onsuccess = () => ok(r.result)
     r.onerror = () => fail(r.error)
   }))
-const req = <T>(r: IDBRequest<T>) => new Promise<T>((ok, fail) => ((r.onsuccess = () => ok(r.result)), (r.onerror = () => fail(r.error))))
-const done = (tx: IDBTransaction) => new Promise<void>((ok, fail) => ((tx.oncomplete = () => ok()), (tx.onerror = tx.onabort = () => fail(tx.error))))
+const req = <T>(r: IDBRequest<T>) =>
+  new Promise<T>((ok, fail) => ((r.onsuccess = () => ok(r.result)), (r.onerror = () => fail(r.error))))
+const done = (tx: IDBTransaction) =>
+  new Promise<void>((ok, fail) => ((tx.oncomplete = () => ok()), (tx.onerror = tx.onabort = () => fail(tx.error))))
 
 // A file's record is rewritten only when what's stored changes: removed or not, waveform finished or not.
 const written = new Map<string, string>()
@@ -45,14 +52,19 @@ export const save = (project: Project, media: Record<string, Media>) =>
 
 async function write(project: Project, media: Record<string, Media>) {
   // Files taken out of the bin are kept only while a clip still uses them.
-  const used = new Set([...project.video, ...project.overlay, ...project.audio, ...(project.parked ?? []).map(x => x.clip)].map(c => c.mediaId))
+  const used = new Set(
+    [...project.video, ...project.overlay, ...project.audio, ...(project.parked ?? []).map(x => x.clip)].map(
+      c => c.mediaId,
+    ),
+  )
   const keep = Object.values(media).filter(m => !m.removed || used.has(m.id))
   const rows = await Promise.all(keep.filter(m => written.get(m.id) !== sig(m)).map(toSaved))
   const tx = (await open()).transaction([STATE, MEDIA], 'readwrite')
   tx.objectStore(STATE).put({ project, ids: keep.map(m => m.id), savedAt: Date.now() }, 'current')
   for (const r of rows) tx.objectStore(MEDIA).put(r, r.id)
   const ids = new Set(keep.map(m => m.id))
-  for (const id of await req(tx.objectStore(MEDIA).getAllKeys())) if (!ids.has(String(id))) tx.objectStore(MEDIA).delete(id)
+  for (const id of await req(tx.objectStore(MEDIA).getAllKeys()))
+    if (!ids.has(String(id))) tx.objectStore(MEDIA).delete(id)
   await done(tx)
   written.clear()
   for (const m of keep) written.set(m.id, sig(m))
@@ -62,7 +74,9 @@ async function write(project: Project, media: Record<string, Media>) {
 export async function load(): Promise<Saved | null> {
   const tx = (await open()).transaction([STATE, MEDIA])
   const [state, rows] = await Promise.all([
-    req(tx.objectStore(STATE).get('current')) as Promise<{ project: Project; ids: string[]; savedAt: number } | undefined>,
+    req(tx.objectStore(STATE).get('current')) as Promise<
+      { project: Project; ids: string[]; savedAt: number } | undefined
+    >,
     req(tx.objectStore(MEDIA).getAll()) as Promise<SavedMedia[]>,
   ])
   const byId = new Map(rows.map(r => [r.id, r]))
@@ -114,10 +128,12 @@ export const toMedia = ({ fileName: _, size: __, lastModified: ___, thumb, ...m 
 
 // Playable copies of files the browser couldn't decode (see convert.ts) live in converted/<folder>/ in the browser's
 // private storage. Ones no saved file uses any more are removed on load, when no conversion can be running.
-export const convertedDir = async () => (await navigator.storage.getDirectory()).getDirectoryHandle('converted', { create: true })
+export const convertedDir = async () =>
+  (await navigator.storage.getDirectory()).getDirectoryHandle('converted', { create: true })
 async function prune(keep: Set<string>) {
   const dir = await convertedDir()
   const old: string[] = []
-  for await (const [name] of dir as unknown as AsyncIterable<[string, FileSystemHandle]>) if (!keep.has(name)) old.push(name)
+  for await (const [name] of dir as unknown as AsyncIterable<[string, FileSystemHandle]>)
+    if (!keep.has(name)) old.push(name)
   for (const name of old) await dir.removeEntry(name, { recursive: true })
 }

@@ -22,7 +22,8 @@ export function removeTrack(p: Project, kind: LaneKind, lane: number): Project {
 
 // Track names: 'v1' is Video 1, 'o<lane>' the overlays (Video 2, 3, …), 'a<lane>' Audio 1, 2, …
 export const trackKey = (kind: 'video' | LaneKind, lane = 0) => (kind === 'video' ? 'v1' : `${kind[0]}${lane}`)
-const defaultName = (key: string) => (key === 'v1' ? 'Video 1' : `${key[0] === 'o' ? 'Video' : 'Audio'} ${Number(key.slice(1)) + (key[0] === 'o' ? 2 : 1)}`)
+const defaultName = (key: string) =>
+  key === 'v1' ? 'Video 1' : `${key[0] === 'o' ? 'Video' : 'Audio'} ${Number(key.slice(1)) + (key[0] === 'o' ? 2 : 1)}`
 export const trackName = (p: Project, key: string) => p.names?.[key] ?? defaultName(key)
 // An empty name (or the default one) goes back to the default.
 export function renameTrack(p: Project, key: string, name: string): Project {

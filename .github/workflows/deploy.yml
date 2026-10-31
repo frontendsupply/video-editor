@@ -13,6 +13,7 @@ jobs:
       - uses: actions/setup-node@v5
         with: { node-version: 26, cache: pnpm }
       - run: pnpm install --frozen-lockfile
+      - run: pnpm check
       - run: pnpm test
       - run: pnpm build
       - run: pnpm dlx wrangler@4 deploy

@@ -1,13 +1,14 @@
 // The Select bar under the ruler: drag here to select part of the timeline (the timeline's scrub handles that, as on an empty lane).
 // The range shows as a block with its times; drag its edges or middle to adjust it, and its tools sit right after it.
-import type { PointerEvent as ReactPointerEvent } from 'react'
+
 import { Menu } from '@base-ui/react/menu'
 import { play } from 'cuelume'
 import { ArrowLeftRight, Crop, Download, Trash2 } from 'lucide-react'
-import { lengthLabel, timecode, type ExportPreset, type Media, type Project, type Range } from '@/lib/model'
-import { cn } from '@/lib/utils'
-import { popup, Tip } from '@/components/ui'
+import type { PointerEvent as ReactPointerEvent } from 'react'
 import { ExportItems } from '@/components/export/ExportItems'
+import { popup, Tip } from '@/components/ui'
+import { type ExportPreset, lengthLabel, type Media, type Project, type Range, timecode } from '@/lib/model'
+import { cn } from '@/lib/utils'
 import { mini } from './styles'
 
 export function RangeBar(props: {
@@ -51,7 +52,10 @@ export function RangeBar(props: {
             <span
               key={edge}
               onPointerDown={e => props.onDrag(e, edge)}
-              className={cn('absolute inset-y-0 grid w-2 cursor-ew-resize place-items-center hover:bg-white/15', edge === 'a' ? 'left-0' : 'right-0')}
+              className={cn(
+                'absolute inset-y-0 grid w-2 cursor-ew-resize place-items-center hover:bg-white/15',
+                edge === 'a' ? 'left-0' : 'right-0',
+              )}
             >
               <span className="h-3 w-0.5 rounded-xs bg-white/70" />
             </span>
@@ -83,7 +87,14 @@ export function RangeBar(props: {
             <Menu.Portal>
               <Menu.Positioner className="z-20 outline-none" sideOffset={6}>
                 <Menu.Popup className={cn(popup, 'w-52')}>
-                  <ExportItems project={props.project} media={props.media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} name={props.name} onName={props.onName} />
+                  <ExportItems
+                    project={props.project}
+                    media={props.media}
+                    onPick={preset => props.onExport(preset, range)}
+                    onFps={props.onFps}
+                    name={props.name}
+                    onName={props.onName}
+                  />
                 </Menu.Popup>
               </Menu.Positioner>
             </Menu.Portal>

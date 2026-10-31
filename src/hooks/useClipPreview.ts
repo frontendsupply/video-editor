@@ -1,14 +1,20 @@
 // Clip Preview: a bin entry open on its own (a saved clip opens marked to its part), from where the marked part is
 // added to the timeline or saved to the bin as a clip of its own.
-import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
-import { play } from 'cuelume'
-import { thumbnail } from '@/lib/media/import'
-import { clock, newClip, type Media, type Project } from '@/lib/model'
-import type { Player } from '@/lib/player'
-import { toast } from '@/components/ui'
-import type { Marks } from '@/components/preview/ClipPreview'
 
-export function useClipPreview({ media, setMedia, setProject, playerRef }: {
+import { play } from 'cuelume'
+import { type Dispatch, type RefObject, type SetStateAction, useEffect, useState } from 'react'
+import type { Marks } from '@/components/preview/ClipPreview'
+import { toast } from '@/components/ui'
+import { thumbnail } from '@/lib/media/import'
+import { clock, type Media, newClip, type Project } from '@/lib/model'
+import type { Player } from '@/lib/player'
+
+export function useClipPreview({
+  media,
+  setMedia,
+  setProject,
+  playerRef,
+}: {
   media: Record<string, Media>
   setMedia: Dispatch<SetStateAction<Record<string, Media>>>
   setProject: (u: (p: Project) => Project) => void
@@ -52,7 +58,8 @@ export function useClipPreview({ media, setMedia, setProject, playerRef }: {
     const name = `${m.file.name} · ${clock(a)}–${clock(b)}`
     play('success', { emphasis: 'subtle' })
     setMedia(ms => ({ ...ms, [id]: { ...m, id, name, range: [a, b], removed: false } }))
-    if (m.hasVideo) thumbnail(m.file, a).then(thumb => thumb && setMedia(ms => (ms[id] ? { ...ms, [id]: { ...ms[id], thumb } } : ms)))
+    if (m.hasVideo)
+      thumbnail(m.file, a).then(thumb => thumb && setMedia(ms => (ms[id] ? { ...ms, [id]: { ...ms[id], thumb } } : ms)))
     toast.add({ title: 'Clip saved to the media bin', description: name })
   }
 

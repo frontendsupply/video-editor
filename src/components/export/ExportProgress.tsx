@@ -1,8 +1,8 @@
 // The export's progress. Closing it (Cancel or Esc) cancels the export; finishing closes it from state.
 import { AlertDialog } from '@base-ui/react/alert-dialog'
 import { Progress } from '@base-ui/react/progress'
-import { cn } from '@/lib/utils'
 import { dialogBackdrop, dialogPopup, pill } from '@/components/ui'
+import { cn } from '@/lib/utils'
 
 export function ExportProgress({ progress, onCancel }: { progress: number | null; onCancel: () => void }) {
   return (
@@ -12,7 +12,9 @@ export function ExportProgress({ progress, onCancel }: { progress: number | null
         <AlertDialog.Popup className={dialogPopup}>
           <div className="grid gap-1">
             <AlertDialog.Title className="text-sm font-semibold">Exporting video</AlertDialog.Title>
-            <AlertDialog.Description className="text-[11px] text-muted">Rendering on this device. Nothing is uploaded.</AlertDialog.Description>
+            <AlertDialog.Description className="text-[11px] text-muted">
+              Rendering on this device. Nothing is uploaded.
+            </AlertDialog.Description>
           </div>
           <Progress.Root className="grid grid-cols-[1fr_auto] gap-2" value={progress ?? 100}>
             <Progress.Label className="text-[11px] font-medium text-muted">Progress</Progress.Label>

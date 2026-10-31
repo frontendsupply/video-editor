@@ -13,7 +13,10 @@ export function computePeaks(
 ): Promise<Float32Array> {
   const peaks = new Float32Array(Math.ceil(duration * PEAKS_PER_SEC) + 1).fill(-1)
   const read = new Float64Array(ways) // seconds read per slice
-  const workers = Array.from({ length: ways }, () => new Worker(new URL('./peaks.worker.ts', import.meta.url), { type: 'module' }))
+  const workers = Array.from(
+    { length: ways },
+    () => new Worker(new URL('./peaks.worker.ts', import.meta.url), { type: 'module' }),
+  )
   let shown = 0
   return new Promise<Float32Array>((resolve, reject) => {
     let left = ways

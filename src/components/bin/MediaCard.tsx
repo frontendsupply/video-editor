@@ -3,10 +3,10 @@
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { play } from 'cuelume'
 import { Check, Film, MonitorPlay, Music, Trash2 } from 'lucide-react'
+import { MEDIA_MIME } from '@/components/timeline/constants'
+import { menuItem, popup, Tip } from '@/components/ui'
 import { binLength, clock, type Media } from '@/lib/model'
 import { cn } from '@/lib/utils'
-import { menuItem, popup, Tip } from '@/components/ui'
-import { MEDIA_MIME } from '@/components/timeline/constants'
 
 const quick = 'grid size-5 place-items-center rounded-xs bg-surface text-ink/70 ring-1 ring-line hover:text-ink'
 
@@ -38,10 +38,20 @@ export function MediaCard(props: {
           {m.thumb ? (
             <img src={m.thumb} alt="" className="size-full object-cover" />
           ) : (
-            <div className="grid size-full place-items-center bg-audio-bg text-audio"><Music size={16} /></div>
+            <div className="grid size-full place-items-center bg-audio-bg text-audio">
+              <Music size={16} />
+            </div>
           )}
           {/* on the timeline or not: uncheck to set its clips aside, check to put them back (or add it) */}
-          <Tip label={used ? 'On the timeline · uncheck to set its clips aside' : parked ? 'Set aside · check to put its clips back' : 'Not on the timeline · check to add it'}>
+          <Tip
+            label={
+              used
+                ? 'On the timeline · uncheck to set its clips aside'
+                : parked
+                  ? 'Set aside · check to put its clips back'
+                  : 'Not on the timeline · check to add it'
+            }
+          >
             <button
               onClick={props.onToggle}
               aria-pressed={used}
@@ -55,16 +65,24 @@ export function MediaCard(props: {
               <Check size={10} strokeWidth={3} />
             </button>
           </Tip>
-          {!m.image && <span className="absolute right-1 bottom-1 rounded-xs bg-surface/90 px-1 text-[9px] font-medium tabular-nums">{clock(binLength(m))}</span>}
+          {!m.image && (
+            <span className="absolute right-1 bottom-1 rounded-xs bg-surface/90 px-1 text-[9px] font-medium tabular-nums">
+              {clock(binLength(m))}
+            </span>
+          )}
           <div className="absolute top-1 right-1 flex gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
             {m.hasVideo && (
               <Tip label="Append to the video track">
-                <button data-cuelume-tap="" className={quick} onClick={props.onAppendVideo}><Film size={10} /></button>
+                <button data-cuelume-tap="" className={quick} onClick={props.onAppendVideo}>
+                  <Film size={10} />
+                </button>
               </Tip>
             )}
             {m.hasAudio && (
               <Tip label="Add audio at the playhead">
-                <button data-cuelume-tap="" className={quick} onClick={props.onAddAudio}><Music size={10} /></button>
+                <button data-cuelume-tap="" className={quick} onClick={props.onAddAudio}>
+                  <Music size={10} />
+                </button>
               </Tip>
             )}
           </div>
@@ -72,24 +90,37 @@ export function MediaCard(props: {
           {reading && (
             <Tip label={`Reading audio · ${Math.floor((m.peaksDone ?? 0) * 100)}%`}>
               <span className="absolute inset-x-0 bottom-0 h-0.5 bg-ink/10">
-                <span className="block h-full bg-emerald-600 transition-[width] duration-200" style={{ width: `${(m.peaksDone ?? 0) * 100}%` }} />
+                <span
+                  className="block h-full bg-emerald-600 transition-[width] duration-200"
+                  style={{ width: `${(m.peaksDone ?? 0) * 100}%` }}
+                />
               </span>
             </Tip>
           )}
         </div>
-        <div className="mt-1 truncate text-[11px]" title={m.name}>{m.name}</div>
-        {m.hasVideo && <div className="text-[10px] text-muted tabular-nums">{m.width}×{m.height}</div>}
+        <div className="mt-1 truncate text-[11px]" title={m.name}>
+          {m.name}
+        </div>
+        {m.hasVideo && (
+          <div className="text-[10px] text-muted tabular-nums">
+            {m.width}×{m.height}
+          </div>
+        )}
       </ContextMenu.Trigger>
       <ContextMenu.Portal>
         <ContextMenu.Positioner className="z-20 outline-none">
           <ContextMenu.Popup className={cn(popup, 'w-48')}>
             {!m.image && (
               <ContextMenu.Item className={menuItem} onClick={props.onOpen}>
-                <span className="flex items-center gap-2"><MonitorPlay size={13} /> Open in Clip Preview</span>
+                <span className="flex items-center gap-2">
+                  <MonitorPlay size={13} /> Open in Clip Preview
+                </span>
               </ContextMenu.Item>
             )}
             <ContextMenu.Item className={menuItem} onClick={props.onRemove}>
-              <span className="flex items-center gap-2"><Trash2 size={13} /> Remove file</span>
+              <span className="flex items-center gap-2">
+                <Trash2 size={13} /> Remove file
+              </span>
             </ContextMenu.Item>
           </ContextMenu.Popup>
         </ContextMenu.Positioner>

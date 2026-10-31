@@ -22,7 +22,8 @@ export function MediaBin(props: {
   onAddAudio: (m: Media) => void
 }) {
   const [tab, setTab] = useState<Kind>('video')
-  const files = (kind: Kind) => Object.values(props.media).filter(m => kindOf(m) === kind && (!m.removed || props.used.has(m.id)))
+  const files = (kind: Kind) =>
+    Object.values(props.media).filter(m => kindOf(m) === kind && (!m.removed || props.used.has(m.id)))
   return (
     <aside className="@container flex shrink-0 flex-col overflow-hidden bg-canvas" style={{ width: props.width }}>
       <Tabs.Root value={tab} onValueChange={v => setTab(v as Kind)} className="flex min-h-0 flex-1 flex-col">
@@ -36,7 +37,8 @@ export function MediaBin(props: {
             >
               <span>
                 {kind[0].toUpperCase() + kind.slice(1)}
-                <span className="@max-xs:hidden"> files</span> {/* narrower than its default, the bin keeps just the kind */}
+                <span className="@max-xs:hidden"> files</span>{' '}
+                {/* narrower than its default, the bin keeps just the kind */}
               </span>
               <span className="text-[10px] text-muted tabular-nums">{files(kind).length}</span>
             </Tabs.Tab>
@@ -47,7 +49,13 @@ export function MediaBin(props: {
             <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] content-start gap-2 p-2">
               <AnimatePresence initial={false}>
                 {files(kind).map(m => (
-                  <motion.div key={m.id} layout="position" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="group min-w-0">
+                  <motion.div
+                    key={m.id}
+                    layout="position"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="group min-w-0"
+                  >
                     <MediaCard
                       media={m}
                       used={props.used.has(m.id)}
@@ -62,7 +70,9 @@ export function MediaBin(props: {
                 ))}
               </AnimatePresence>
             </div>
-            {!files(kind).length && <p className="px-3 py-2 text-[11px] text-muted">Drop {kind} files anywhere, or use Add media.</p>}
+            {!files(kind).length && (
+              <p className="px-3 py-2 text-[11px] text-muted">Drop {kind} files anywhere, or use Add media.</p>
+            )}
           </Tabs.Panel>
         ))}
       </Tabs.Root>

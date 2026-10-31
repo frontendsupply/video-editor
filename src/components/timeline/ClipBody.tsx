@@ -1,13 +1,24 @@
 // What a clip looks like on its lane: video clips (thumbnails, their sound, the name) and audio clips (the waveform),
 // and the trim handles on their edges.
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+
 import { Music } from 'lucide-react'
+import type { ReactNode, PointerEvent as ReactPointerEvent } from 'react'
 import type { Media, Placed } from '@/lib/model'
 import { cn } from '@/lib/utils'
 import { Waveform } from './Waveform'
 
 // A video clip: repeated thumbnail, its sound in a strip underneath (until unlinked), name.
-export function ClipBody({ pl, media, width, view }: { pl: Placed; media: Media; width: number; view: [number, number] }) {
+export function ClipBody({
+  pl,
+  media,
+  width,
+  view,
+}: {
+  pl: Placed
+  media: Media
+  width: number
+  view: [number, number]
+}) {
   return (
     <div className="relative flex h-full flex-col gap-0.5 overflow-hidden rounded-md bg-surface p-1 ring-1 ring-line group-data-selected:ring-2 group-data-selected:ring-accent">
       <div
@@ -15,8 +26,22 @@ export function ClipBody({ pl, media, width, view }: { pl: Placed; media: Media;
         style={{ backgroundImage: media.thumb ? `url(${media.thumb})` : undefined }}
       />
       {media.hasAudio && !pl.clip.muted && (
-        <div className={cn('relative h-3 shrink-0 overflow-hidden rounded-xs bg-audio-bg', reading(media) && 'wave-pending')}>
-          {media.peaks && <Waveform peaks={media.peaks} done={media.peaksDone!} from={pl.clip.in} to={pl.clip.out} width={width} view={view} />}
+        <div
+          className={cn(
+            'relative h-3 shrink-0 overflow-hidden rounded-xs bg-audio-bg',
+            reading(media) && 'wave-pending',
+          )}
+        >
+          {media.peaks && (
+            <Waveform
+              peaks={media.peaks}
+              done={media.peaksDone!}
+              from={pl.clip.in}
+              to={pl.clip.out}
+              width={width}
+              view={view}
+            />
+          )}
         </div>
       )}
       <Label>
@@ -43,10 +68,36 @@ export function Handle({ side, onPointerDown }: { side: 'l' | 'r'; onPointerDown
 }
 
 // An audio clip: waveform of its source range [in, out] and (on free lanes) its name.
-export function AudioBody({ pl, media, width, view, label }: { pl: Placed; media: Media; width: number; view: [number, number]; label?: boolean }) {
+export function AudioBody({
+  pl,
+  media,
+  width,
+  view,
+  label,
+}: {
+  pl: Placed
+  media: Media
+  width: number
+  view: [number, number]
+  label?: boolean
+}) {
   return (
-    <div className={cn('relative h-full overflow-hidden rounded-md bg-audio-bg ring-1 ring-audio/15 group-data-selected:ring-2 group-data-selected:ring-accent', reading(media) && 'wave-pending')}>
-      {media.peaks && <Waveform peaks={media.peaks} done={media.peaksDone!} from={pl.clip.in} to={pl.clip.out} width={width} view={view} />}
+    <div
+      className={cn(
+        'relative h-full overflow-hidden rounded-md bg-audio-bg ring-1 ring-audio/15 group-data-selected:ring-2 group-data-selected:ring-accent',
+        reading(media) && 'wave-pending',
+      )}
+    >
+      {media.peaks && (
+        <Waveform
+          peaks={media.peaks}
+          done={media.peaksDone!}
+          from={pl.clip.in}
+          to={pl.clip.out}
+          width={width}
+          view={view}
+        />
+      )}
       {label && (
         <Label>
           <Music size={10} /> {media.name}

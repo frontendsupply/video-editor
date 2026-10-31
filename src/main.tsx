@@ -1,9 +1,10 @@
 // Entry: mounts the editor with its tooltip and toast providers.
-import { createRoot } from 'react-dom/client'
+
 import { Toast } from '@base-ui/react/toast'
 import { Tooltip } from '@base-ui/react/tooltip'
+import { createRoot } from 'react-dom/client'
 import { App } from '@/app/App'
-import { toast, Toasts } from '@/components/ui'
+import { Toasts, toast } from '@/components/ui'
 import '@/styles/globals.css'
 
 createRoot(document.getElementById('root')!).render(

@@ -2,12 +2,13 @@
 // can't decode. New files go on the timeline too: videos and pictures at the end of Video 1, sounds after the last one
 // on Audio 1.
 // The first video in an empty project sets its frame rate.
-import { useEffect, useRef, useState, type ChangeEvent, type Dispatch, type SetStateAction } from 'react'
+
 import { play } from 'cuelume'
-import { importFile, NeedsConversion, type Picked } from '@/lib/media/import'
-import { audio1End, nearestRate, newClip, type Media, type Project } from '@/lib/model'
-import { plural } from '@/lib/utils'
+import { type ChangeEvent, type Dispatch, type SetStateAction, useEffect, useRef, useState } from 'react'
 import { toast } from '@/components/ui'
+import { importFile, NeedsConversion, type Picked } from '@/lib/media/import'
+import { audio1End, type Media, nearestRate, newClip, type Project } from '@/lib/model'
+import { plural } from '@/lib/utils'
 import { useLatest } from './useLatest'
 
 // What the file picker offers (any file can still be chosen).
@@ -22,7 +23,12 @@ const PICK = [
   },
 ]
 
-export function useImport({ setMedia, setProject, readPeaks, locate }: {
+export function useImport({
+  setMedia,
+  setProject,
+  readPeaks,
+  locate,
+}: {
   setMedia: Dispatch<SetStateAction<Record<string, Media>>>
   setProject: (u: (p: Project) => Project) => void
   readPeaks: (m: Media) => void
@@ -34,16 +40,31 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
   async function addFiles(items: Picked[]) {
     if (locate(items)) return
     const results = await Promise.allSettled(
-      items.map(async ({ file, handle, name, converted }) => ({ ...(await importFile(file)), handle, ...(converted && { name, converted }) })),
+      items.map(async ({ file, handle, name, converted }) => ({
+        ...(await importFile(file)),
+        handle,
+        ...(converted && { name, converted }),
+      })),
     )
     const ok = results.flatMap(r => (r.status === 'fulfilled' ? [r.value] : []))
     // Files the browser can't decode get a playable copy made in the background, then come in like the rest.
-    const convertible = (r: PromiseSettledResult<unknown>, i: number) => r.status === 'rejected' && r.reason instanceof NeedsConversion && !items[i].converted
-    results.forEach((r, i) => convertible(r, i) && convertFile(items[i].file, ((r as PromiseRejectedResult).reason as NeedsConversion).video))
-    const failed = results.flatMap((r, i) => (r.status === 'rejected' && !convertible(r, i) ? [`${items[i].file.name}: ${r.reason?.message ?? r.reason}`] : []))
+    const convertible = (r: PromiseSettledResult<unknown>, i: number) =>
+      r.status === 'rejected' && r.reason instanceof NeedsConversion && !items[i].converted
+    results.forEach(
+      (r, i) =>
+        convertible(r, i) && convertFile(items[i].file, ((r as PromiseRejectedResult).reason as NeedsConversion).video),
+    )
+    const failed = results.flatMap((r, i) =>
+      r.status === 'rejected' && !convertible(r, i) ? [`${items[i].file.name}: ${r.reason?.message ?? r.reason}`] : [],
+    )
     if (failed.length) {
       play('error')
-      toast.add({ title: plural(failed.length, { one: "Couldn't add # file", other: "Couldn't add # files" }), description: failed.join('\n'), type: 'error', timeout: 0 })
+      toast.add({
+        title: plural(failed.length, { one: "Couldn't add # file", other: "Couldn't add # files" }),
+        description: failed.join('\n'),
+        type: 'error',
+        timeout: 0,
+      })
     }
     if (!ok.length) return
     play('success', { emphasis: 'subtle' })
@@ -51,11 +72,13 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
     ok.filter(m => m.hasAudio).forEach(readPeaks)
     setProject(p => {
       let audioEnd = audio1End(p)
-      const audio = ok.filter(m => !m.hasVideo).map(m => {
-        const c = newClip(m, audioEnd)
-        audioEnd += m.duration
-        return c
-      })
+      const audio = ok
+        .filter(m => !m.hasVideo)
+        .map(m => {
+          const c = newClip(m, audioEnd)
+          audioEnd += m.duration
+          return c
+        })
       const first = !p.video.length && ok.find(m => m.hasVideo && m.fps)
       return {
         ...p,
@@ -91,17 +114,27 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
       ac.signal.throwIfAborted()
       toast.update(id, { title: `Converting ${file.name}` })
       const { convert } = await import('@/lib/media/convert') // the software decoder loads only now
-      const c = await convert(file, video, share => {
-        const pct = Math.floor(share * 100)
-        if (pct !== shown) toast.update(id, { title: `Converting ${file.name} · ${(shown = pct)}%` })
-      }, ac.signal)
+      const c = await convert(
+        file,
+        video,
+        share => {
+          const pct = Math.floor(share * 100)
+          if (pct !== shown) toast.update(id, { title: `Converting ${file.name} · ${(shown = pct)}%` })
+        },
+        ac.signal,
+      )
       toast.close(id)
       add.current([{ file: c.file, handle: c.handle, name: file.name, converted: c.folder }])
     } catch (e) {
       if (ac.signal.aborted) return
       toast.close(id)
       play('error')
-      toast.add({ title: `Couldn't convert ${file.name}`, description: (e as Error).message, type: 'error', timeout: 0 })
+      toast.add({
+        title: `Couldn't convert ${file.name}`,
+        description: (e as Error).message,
+        type: 'error',
+        timeout: 0,
+      })
     } finally {
       next()
     }
@@ -136,9 +169,16 @@ export function useImport({ setMedia, setProject, readPeaks, locate }: {
       if (!dt?.files.length) return
       const files = [...dt.files]
       // Handles can only be asked for while the drop event runs.
-      const handles = [...dt.items].filter(i => i.kind === 'file').map(i => i.getAsFileSystemHandle?.().catch(() => null) ?? null)
+      const handles = [...dt.items]
+        .filter(i => i.kind === 'file')
+        .map(i => i.getAsFileSystemHandle?.().catch(() => null) ?? null)
       Promise.all(handles).then(hs =>
-        add.current(files.map((file, i) => ({ file, handle: hs[i]?.kind === 'file' ? (hs[i] as FileSystemFileHandle) : undefined }))),
+        add.current(
+          files.map((file, i) => ({
+            file,
+            handle: hs[i]?.kind === 'file' ? (hs[i] as FileSystemFileHandle) : undefined,
+          })),
+        ),
       )
     }
     addEventListener('dragover', over)

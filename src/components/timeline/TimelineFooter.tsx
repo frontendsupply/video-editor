@@ -1,13 +1,14 @@
 // The timeline's footer, in one row: the selected clip (name, times, Crop, speed and volume; a moved or resized
 // picture's Reset), or several selected clips and Merge, or the selected range, or a hint; then the zoom controls and
 // the light / dark toggle.
-import { useEffect } from 'react'
+
 import { play } from 'cuelume'
 import { Crop, Film, ImageIcon, Maximize2, Merge, Moon, Music, Sun, ZoomIn, ZoomOut } from 'lucide-react'
-import { lengthLabel, timecode, type Clip, type Media, type Placed, type Range } from '@/lib/model'
-import { cn, MAC, MOD, plural } from '@/lib/utils'
-import { cssColor, setDark, useDark } from '@/lib/theme'
+import { useEffect } from 'react'
 import { Divider, ghost, Select, Slider, Tip } from '@/components/ui'
+import { type Clip, lengthLabel, type Media, type Placed, type Range, timecode } from '@/lib/model'
+import { cssColor, setDark, useDark } from '@/lib/theme'
+import { cn, MAC, MOD, plural } from '@/lib/utils'
 
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 2, 3, 4].map(s => ({ value: s, label: `${s}×` }))
 
@@ -35,12 +36,16 @@ export function TimelineFooter(props: {
               <Divider />
               <Tip label={`Join them into one clip (${MOD}J)`}>
                 {/* ctrl is ⌘ on a Mac */}
-                <button className={cn(ghost, 'h-6 px-2')} onClick={props.onMerge} aria-keyshortcuts="ctrl+j"><Merge size={12} /> Merge clips</button>
+                <button className={cn(ghost, 'h-6 px-2')} onClick={props.onMerge} aria-keyshortcuts="ctrl+j">
+                  <Merge size={12} /> Merge clips
+                </button>
               </Tip>
               <span className="truncate text-[10px] text-muted">⌫ delete</span>
             </>
           ) : (
-            <span className="truncate text-[10px] text-muted">⌫ delete · to merge, select pieces of a split clip that sit side by side</span>
+            <span className="truncate text-[10px] text-muted">
+              ⌫ delete · to merge, select pieces of a split clip that sit side by side
+            </span>
           )}
         </div>
       ) : sel && m && !range ? (
@@ -52,13 +57,19 @@ export function TimelineFooter(props: {
           ) : (
             <Music size={12} className="shrink-0 text-muted" />
           )}
-          <span className="max-w-48 truncate font-medium" title={m.name}>{m.name}</span>
-          <span className="shrink-0 text-[10px] text-muted tabular-nums">{timecode(sel.start, digits)} → {timecode(sel.end, digits)}</span>
+          <span className="max-w-48 truncate font-medium" title={m.name}>
+            {m.name}
+          </span>
+          <span className="shrink-0 text-[10px] text-muted tabular-nums">
+            {timecode(sel.start, digits)} → {timecode(sel.end, digits)}
+          </span>
           {props.onCrop && (
             <>
               <Divider />
               <Tip label="Choose the part of the picture to keep">
-                <button className={cn(ghost, 'h-6 px-2')} onClick={props.onCrop}><Crop size={12} /> Crop</button>
+                <button className={cn(ghost, 'h-6 px-2')} onClick={props.onCrop}>
+                  <Crop size={12} /> Crop
+                </button>
               </Tip>
             </>
           )}
@@ -66,20 +77,33 @@ export function TimelineFooter(props: {
             <>
               <Divider />
               <Tip label="Reset position and size">
-                <button className={cn(ghost, 'h-6 px-2')} onClick={() => props.onPatch({ transform: undefined })}>Reset</button>
+                <button className={cn(ghost, 'h-6 px-2')} onClick={() => props.onPatch({ transform: undefined })}>
+                  Reset
+                </button>
               </Tip>
             </>
           )}
           {!m.image && ( // a picture looks the same at any speed
             <>
               <Divider />
-              <Select label="Speed" value={sel.clip.speed} items={SPEEDS} onChange={speed => props.onPatch({ speed })} />
+              <Select
+                label="Speed"
+                value={sel.clip.speed}
+                items={SPEEDS}
+                onChange={speed => props.onPatch({ speed })}
+              />
             </>
           )}
           {m.hasAudio && !sel.clip.muted && (
             <>
               <Divider />
-              <Slider label="Volume" value={sel.clip.volume} onChange={volume => props.onPatch({ volume })} format={{ style: 'percent' }} width="w-20" />
+              <Slider
+                label="Volume"
+                value={sel.clip.volume}
+                onChange={volume => props.onPatch({ volume })}
+                format={{ style: 'percent' }}
+                width="w-20"
+              />
             </>
           )}
         </div>
@@ -94,14 +118,34 @@ export function TimelineFooter(props: {
       )}
       <div className="flex-1" />
       <Tip label="Zoom to fit">
-        <button className={ghost} onClick={zoom.fit} disabled={props.empty} data-cuelume-tap="" data-cuelume-emphasis="subtle"><Maximize2 size={13} /></button>
+        <button
+          className={ghost}
+          onClick={zoom.fit}
+          disabled={props.empty}
+          data-cuelume-tap=""
+          data-cuelume-emphasis="subtle"
+        >
+          <Maximize2 size={13} />
+        </button>
       </Tip>
       <Tip label="Zoom out">
-        <button className={ghost} onClick={() => zoom.by(1 / 1.5)} disabled={props.empty}><ZoomOut size={14} /></button>
+        <button className={ghost} onClick={() => zoom.by(1 / 1.5)} disabled={props.empty}>
+          <ZoomOut size={14} />
+        </button>
       </Tip>
-      <Slider label="Zoom" value={Math.log(zoom.pps)} min={Math.log(zoom.lo)} max={Math.log(zoom.hi)} step={0.01} onChange={v => zoom.set(Math.exp(v))} disabled={props.empty} />
+      <Slider
+        label="Zoom"
+        value={Math.log(zoom.pps)}
+        min={Math.log(zoom.lo)}
+        max={Math.log(zoom.hi)}
+        step={0.01}
+        onChange={v => zoom.set(Math.exp(v))}
+        disabled={props.empty}
+      />
       <Tip label="Zoom in">
-        <button className={ghost} onClick={() => zoom.by(1.5)} disabled={props.empty}><ZoomIn size={14} /></button>
+        <button className={ghost} onClick={() => zoom.by(1.5)} disabled={props.empty}>
+          <ZoomIn size={14} />
+        </button>
       </Tip>
       <Divider />
       <ThemeToggle />
@@ -112,11 +156,14 @@ export function TimelineFooter(props: {
 // Light or dark, for the whole app. The browser's own bar (theme-color) follows the header's color.
 function ThemeToggle() {
   const dark = useDark()
-  useEffect(() => document.querySelector('meta[name=theme-color]')?.setAttribute('content', cssColor('--color-chrome')), [dark])
+  useEffect(
+    () => document.querySelector('meta[name=theme-color]')?.setAttribute('content', cssColor('--color-chrome')),
+    [dark],
+  )
   return (
     <Tip label={dark ? 'Light mode' : 'Dark mode'}>
       <button
-        className={cn(ghost, "size-6 justify-center p-0")}
+        className={cn(ghost, 'size-6 justify-center p-0')}
         onClick={() => (play('toggle', { direction: dark ? 'back' : 'forward', emphasis: 'subtle' }), setDark(!dark))}
         aria-label={dark ? 'Light mode' : 'Dark mode'}
       >

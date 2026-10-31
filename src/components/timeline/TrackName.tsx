@@ -8,7 +8,10 @@ export function TrackName({ name, tip, onRename }: { name: string; tip: string; 
   if (!editing)
     return (
       <Tip label={tip}>
-        <button className="-mx-1 h-5 min-w-0 flex-1 cursor-text truncate px-1 text-left hover:text-ink hover:outline-1 hover:outline-ink/40 hover:outline-dashed" onClick={() => setEditing(true)}>
+        <button
+          className="-mx-1 h-5 min-w-0 flex-1 cursor-text truncate px-1 text-left hover:text-ink hover:outline-1 hover:outline-ink/40 hover:outline-dashed"
+          onClick={() => setEditing(true)}
+        >
           {name}
         </button>
       </Tip>

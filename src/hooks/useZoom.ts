@@ -2,14 +2,19 @@
 // in goes to at least 4× that. Editing never changes the zoom, so the view holds still while you trim, move or delete:
 // only the zoom controls, the first import and Crop do. If the edit gets shorter the zoom can sit past these limits;
 // the controls start from wherever it is.
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react'
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { zoomToFit } from '@/components/timeline/constants'
 import { clamp } from '@/lib/utils'
 
 const ZOOM_MIN = 2 // empty timeline; with clips, the zoom-out limit fits the whole edit
 const ZOOM_MAX = 200
 
-export function useZoom({ duration, viewW, scrollRef, time }: {
+export function useZoom({
+  duration,
+  viewW,
+  scrollRef,
+  time,
+}: {
   duration: number
   viewW: number // visible width of the lanes
   scrollRef: RefObject<HTMLDivElement | null>

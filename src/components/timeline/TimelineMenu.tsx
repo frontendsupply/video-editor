@@ -2,10 +2,10 @@
 // all the selected clips, when it's one of them).
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { ChevronRight, Crop, Download, FileAudio, Merge, Scissors, Trash2, Unlink } from 'lucide-react'
+import { ExportItems } from '@/components/export/ExportItems'
+import { kbd, menuItem, popup } from '@/components/ui'
 import type { Clip, ExportPreset, Media, Placed, Project, Range } from '@/lib/model'
 import { cn, MOD } from '@/lib/utils'
-import { kbd, menuItem, popup } from '@/components/ui'
-import { ExportItems } from '@/components/export/ExportItems'
 
 export function TimelineMenu(props: {
   target: Placed | 'range' | null
@@ -34,23 +34,40 @@ export function TimelineMenu(props: {
           {target === 'range' && range ? (
             <>
               <ContextMenu.Item className={menuItem} onClick={props.onSplit}>
-                <span className="flex items-center gap-2"><Scissors size={13} /> Split all tracks</span><kbd className={kbd}>S</kbd>
+                <span className="flex items-center gap-2">
+                  <Scissors size={13} /> Split all tracks
+                </span>
+                <kbd className={kbd}>S</kbd>
               </ContextMenu.Item>
               <ContextMenu.Item className={menuItem} onClick={props.onDeleteRange}>
-                <span className="flex items-center gap-2"><Trash2 size={13} /> Delete selection</span><kbd className={kbd}>⌫</kbd>
+                <span className="flex items-center gap-2">
+                  <Trash2 size={13} /> Delete selection
+                </span>
+                <kbd className={kbd}>⌫</kbd>
               </ContextMenu.Item>
               <ContextMenu.Item className={menuItem} onClick={props.onCrop}>
-                <span className="flex items-center gap-2"><Crop size={13} /> Crop to selection</span>
+                <span className="flex items-center gap-2">
+                  <Crop size={13} /> Crop to selection
+                </span>
               </ContextMenu.Item>
               <ContextMenu.SubmenuRoot>
                 <ContextMenu.SubmenuTrigger className={cn(menuItem, 'data-popup-open:bg-ink/6')}>
-                  <span className="flex items-center gap-2"><Download size={13} /> Export selection</span>
+                  <span className="flex items-center gap-2">
+                    <Download size={13} /> Export selection
+                  </span>
                   <ChevronRight size={12} className="text-muted" />
                 </ContextMenu.SubmenuTrigger>
                 <ContextMenu.Portal>
                   <ContextMenu.Positioner className="z-20 outline-none" sideOffset={4}>
                     <ContextMenu.Popup className={cn(popup, 'w-52')}>
-                      <ExportItems project={project} media={media} onPick={preset => props.onExport(preset, range)} onFps={props.onFps} name={props.name} onName={props.onName} />
+                      <ExportItems
+                        project={project}
+                        media={media}
+                        onPick={preset => props.onExport(preset, range)}
+                        onFps={props.onFps}
+                        name={props.name}
+                        onName={props.onName}
+                      />
                     </ContextMenu.Popup>
                   </ContextMenu.Positioner>
                 </ContextMenu.Portal>
@@ -60,25 +77,39 @@ export function TimelineMenu(props: {
             <>
               {many && props.onMerge && (
                 <ContextMenu.Item className={menuItem} onClick={props.onMerge}>
-                  <span className="flex items-center gap-2"><Merge size={13} /> Merge clips</span><kbd className={kbd}>{MOD}J</kbd>
+                  <span className="flex items-center gap-2">
+                    <Merge size={13} /> Merge clips
+                  </span>
+                  <kbd className={kbd}>{MOD}J</kbd>
                 </ContextMenu.Item>
               )}
               <ContextMenu.Item
                 className={menuItem}
                 // only a video clip that still carries its sound can unlink it
-                disabled={!media[target.clip.mediaId].hasAudio || !!target.clip.muted || project.audio.some(c => c.id === target.clip.id)}
+                disabled={
+                  !media[target.clip.mediaId].hasAudio ||
+                  !!target.clip.muted ||
+                  project.audio.some(c => c.id === target.clip.id)
+                }
                 onClick={() => props.onUnlink(target.clip.id)}
               >
-                <span className="flex items-center gap-2"><Unlink size={13} /> Unlink audio</span>
+                <span className="flex items-center gap-2">
+                  <Unlink size={13} /> Unlink audio
+                </span>
               </ContextMenu.Item>
               {/* a video's sound, unlinked onto an audio track */}
               {media[target.clip.mediaId].hasVideo && project.audio.some(c => c.id === target.clip.id) && (
                 <ContextMenu.Item className={menuItem} onClick={() => props.onSaveAudio(target.clip)}>
-                  <span className="flex items-center gap-2"><FileAudio size={13} /> Save audio clip as new file</span>
+                  <span className="flex items-center gap-2">
+                    <FileAudio size={13} /> Save audio clip as new file
+                  </span>
                 </ContextMenu.Item>
               )}
               <ContextMenu.Item className={menuItem} onClick={() => props.onDeleteClip(target.clip.id)}>
-                <span className="flex items-center gap-2"><Trash2 size={13} /> {many ? 'Delete clips' : 'Delete clip'}</span><kbd className={kbd}>⌫</kbd>
+                <span className="flex items-center gap-2">
+                  <Trash2 size={13} /> {many ? 'Delete clips' : 'Delete clip'}
+                </span>
+                <kbd className={kbd}>⌫</kbd>
               </ContextMenu.Item>
             </>
           ) : null}

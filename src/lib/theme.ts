@@ -5,7 +5,11 @@ import { useSyncExternalStore } from 'react'
 const root = document.documentElement
 const subs = new Set<() => void>()
 
-export const useDark = () => useSyncExternalStore(f => (subs.add(f), () => subs.delete(f)), () => root.dataset.theme === 'dark')
+export const useDark = () =>
+  useSyncExternalStore(
+    f => (subs.add(f), () => subs.delete(f)),
+    () => root.dataset.theme === 'dark',
+  )
 
 export function setDark(dark: boolean) {
   root.dataset.theme = dark ? 'dark' : 'light'

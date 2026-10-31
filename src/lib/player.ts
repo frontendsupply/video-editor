@@ -1,7 +1,17 @@
 // The preview engine: plays the project through media elements onto a canvas, with its own clock.
 import {
-  drawFrame, laneOf, layerRect, layoutFree, layoutVideo, outputSize, projectDuration, sourceTime,
-  type Clip, type Media, type Placed, type Project,
+  type Clip,
+  drawFrame,
+  laneOf,
+  layerRect,
+  layoutFree,
+  layoutVideo,
+  type Media,
+  outputSize,
+  type Placed,
+  type Project,
+  projectDuration,
+  sourceTime,
 } from '@/lib/model'
 
 const PREVIEW_MAX = 1280 // preview canvas long edge; export always renders full size
@@ -154,7 +164,8 @@ export class Player {
     let free: Slot | undefined
     for (const s of this.slots) {
       if (s.clip === c.id) return s.el
-      if (!s.clip && s.key === key && (!free || Math.abs(s.el.currentTime - at) < Math.abs(free.el.currentTime - at))) free = s
+      if (!s.clip && s.key === key && (!free || Math.abs(s.el.currentTime - at) < Math.abs(free.el.currentTime - at)))
+        free = s
     }
     if (!free) {
       const el = document.createElement(this.sound.has(c.id) ? 'audio' : 'video')
@@ -218,13 +229,16 @@ export class Player {
     const active = lone ? [lone] : on
     // every active video clip is in sync()'s `soon`, so it holds an element; a picture has its <img>
     const els = active.map(pl =>
-      this.media[pl.clip.mediaId].image ? this.picture(pl.clip.mediaId) : (this.slots.find(s => s.clip === pl.clip.id)!.el as HTMLVideoElement),
+      this.media[pl.clip.mediaId].image
+        ? this.picture(pl.clip.mediaId)
+        : (this.slots.find(s => s.clip === pl.clip.id)!.el as HTMLVideoElement),
     )
     // mid-seek or still loading: keep the last frame instead of flashing black
     if (els.some(el => (el instanceof HTMLImageElement ? !el.complete : el.readyState < 2))) return
     drawFrame(this.ctx, null, 0, 0, this.project.fit) // black base
     els.forEach((el, i) => {
-      const [w, h] = el instanceof HTMLImageElement ? [el.naturalWidth, el.naturalHeight] : [el.videoWidth, el.videoHeight]
+      const [w, h] =
+        el instanceof HTMLImageElement ? [el.naturalWidth, el.naturalHeight] : [el.videoWidth, el.videoHeight]
       const { transform, crop } = active[i].clip
       if (lone) drawFrame(this.ctx, el, w, h, 'contain', false)
       else drawFrame(this.ctx, el, w, h, this.project!.fit, false, transform, crop)

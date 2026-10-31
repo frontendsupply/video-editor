@@ -1,17 +1,24 @@
 // The project is saved as you go. On load the last one comes back by itself when the browser still lets us read its
 // files; otherwise the restore panel asks to read them again (or to pick them) or to start fresh, and adding any other
 // file starts fresh with it. Nothing is saved until that's settled, so the empty editor never overwrites it.
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+
 import { play } from 'cuelume'
+import { type Dispatch, type SetStateAction, useEffect, useState } from 'react'
 import type { Picked } from '@/lib/media/import'
 import type { Media, Project } from '@/lib/model'
-import { clear, isFileOf, load, readHandles, save, toMedia, type Saved } from '@/lib/store'
+import { clear, isFileOf, load, readHandles, type Saved, save, toMedia } from '@/lib/store'
 import { useLatest } from './useLatest'
 
 // The last project, waiting for its files: the ones found so far, and whether the browser was already asked for the rest.
 export type Restore = { saved: Saved; files: Map<string, File>; asked?: boolean }
 
-export function useProjectStorage({ project, media, setMedia, reset, readPeaks }: {
+export function useProjectStorage({
+  project,
+  media,
+  setMedia,
+  reset,
+  readPeaks,
+}: {
   project: Project
   media: Record<string, Media>
   setMedia: Dispatch<SetStateAction<Record<string, Media>>>
@@ -54,7 +61,13 @@ export function useProjectStorage({ project, media, setMedia, reset, readPeaks }
   // One click lets the browser read the saved files again; any it can't reach have to be picked.
   async function reconnect() {
     const r = pending.current!
-    const files = new Map([...r.files, ...(await readHandles(r.saved.media.filter(m => !r.files.has(m.id)), true))])
+    const files = new Map([
+      ...r.files,
+      ...(await readHandles(
+        r.saved.media.filter(m => !r.files.has(m.id)),
+        true,
+      )),
+    ])
     if (files.size === r.saved.media.length) apply(r.saved, files)
     else setRestore({ ...r, files, asked: true })
   }
@@ -65,7 +78,7 @@ export function useProjectStorage({ project, media, setMedia, reset, readPeaks }
   function locate(items: Picked[]) {
     const r = pending.current
     if (!r) return false
-    if (!items.every(x => r.saved.media.some(m => isFileOf(m, x.file)))) return discard(), false
+    if (!items.every(x => r.saved.media.some(m => isFileOf(m, x.file)))) return (discard(), false)
     const files = new Map(r.files)
     const media = r.saved.media.map(m => {
       const found = !files.has(m.id) && items.find(x => isFileOf(m, x.file))
