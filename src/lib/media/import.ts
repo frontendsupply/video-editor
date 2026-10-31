@@ -1,5 +1,12 @@
 // Bringing a file in: probing it (tracks, size, length, a thumbnail) without reading it all. Pictures are read whole.
-import { ALL_FORMATS, BlobSource, CanvasSink, Input, UnsupportedInputFormatError, type InputVideoTrack } from 'mediabunny'
+import {
+  ALL_FORMATS,
+  BlobSource,
+  CanvasSink,
+  Input,
+  type InputVideoTrack,
+  UnsupportedInputFormatError,
+} from 'mediabunny'
 import { IMAGE_LENGTH, type Media } from '@/lib/model'
 
 // A file to import, with its handle when the browser gives one; a converted copy also keeps the original's name.
@@ -17,17 +24,22 @@ export class NeedsConversion extends Error {
 
 // Probe a local file. Only the bytes needed are read (headers + one frame), never the whole file.
 export async function importFile(file: File): Promise<Media> {
-  if (!file.size) throw new Error('The file is empty. Check that it finished copying or downloading, then add it again.')
+  if (!file.size)
+    throw new Error('The file is empty. Check that it finished copying or downloading, then add it again.')
   if (file.type.startsWith('image/')) return importImage(file)
   const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })
   try {
     const [video, audio] = await Promise.all([input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack()]).catch(e => {
       if (!(e instanceof UnsupportedInputFormatError)) throw e
       // A container it can't read, like AVI, goes to the converter; a file that isn't media at all doesn't.
-      if (file.type && !/^(video|audio)\//.test(file.type)) throw new Error('Only video, audio and image files can be added.')
+      if (file.type && !/^(video|audio)\//.test(file.type))
+        throw new Error('Only video, audio and image files can be added.')
       throw new NeedsConversion('encode')
     })
-    if (!video && !audio) throw new Error("No video or audio found in it. If it's still being recorded or copied, add it again once that's done.")
+    if (!video && !audio)
+      throw new Error(
+        "No video or audio found in it. If it's still being recorded or copied, add it again once that's done.",
+      )
     if (video && !(await video.canDecode())) throw new NeedsConversion('encode')
     if (audio && !(await audio.canDecode())) throw new NeedsConversion('copy')
     const duration = await input.computeDuration()
@@ -95,4 +107,10 @@ export async function thumbnail(file: File, t: number) {
 const toBlob = (c: HTMLCanvasElement | OffscreenCanvas): Promise<Blob> =>
   c instanceof OffscreenCanvas
     ? c.convertToBlob({ type: 'image/jpeg', quality: 0.7 })
-    : new Promise((ok, fail) => c.toBlob(b => (b ? ok(b) : fail(new Error("Couldn't read its first frame. Try adding it again."))), 'image/jpeg', 0.7))
+    : new Promise((ok, fail) =>
+        c.toBlob(
+          b => (b ? ok(b) : fail(new Error("Couldn't read its first frame. Try adding it again."))),
+          'image/jpeg',
+          0.7,
+        ),
+      )

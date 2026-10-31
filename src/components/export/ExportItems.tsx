@@ -1,9 +1,17 @@
 // The export menu's contents, shared by the header's Export and the selected range's export.
 import { Menu } from '@base-ui/react/menu'
 import { play } from 'cuelume'
-import { EXPORT_PRESETS, FRAME_RATES, exportSize, outputSize, type ExportPreset, type Media, type Project } from '@/lib/model'
-import { cn } from '@/lib/utils'
 import { menuItem, menuSeparator } from '@/components/ui'
+import {
+  EXPORT_PRESETS,
+  type ExportPreset,
+  exportSize,
+  FRAME_RATES,
+  type Media,
+  outputSize,
+  type Project,
+} from '@/lib/model'
+import { cn } from '@/lib/utils'
 
 // The export menu's contents, for the header Export and the selection's: the file name (focused, selected, ready to
 // type over), frame rate in one row (stays open while you pick), then the sizes to export at, each with its output
@@ -63,7 +71,9 @@ export function ExportItems(props: {
         return (
           <Menu.Item key={preset.label} onClick={() => onPick(preset)} className={cn(menuItem, 'py-1')}>
             {preset.label}
-            <span className="text-[10px] text-muted tabular-nums">{w}×{h}</span>
+            <span className="text-[10px] text-muted tabular-nums">
+              {w}×{h}
+            </span>
           </Menu.Item>
         )
       })}

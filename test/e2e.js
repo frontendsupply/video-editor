@@ -5,7 +5,10 @@
 import * as mb from 'mediabunny'
 
 export async function makeClip(name, w, h, color, secs, freq) {
-  const output = new mb.Output({ format: w ? new mb.Mp4OutputFormat() : new mb.WavOutputFormat(), target: new mb.BufferTarget() })
+  const output = new mb.Output({
+    format: w ? new mb.Mp4OutputFormat() : new mb.WavOutputFormat(),
+    target: new mb.BufferTarget(),
+  })
   let ctx, video, audio
   if (w) {
     ctx = new OffscreenCanvas(w, h).getContext('2d')
@@ -21,7 +24,8 @@ export async function makeClip(name, w, h, color, secs, freq) {
   if (audio) {
     const sr = 48000
     const buf = new AudioBuffer({ length: secs * sr, numberOfChannels: 2, sampleRate: sr })
-    for (let c = 0; c < 2; c++) buf.getChannelData(c).forEach((_, i, d) => (d[i] = 0.5 * Math.sin((2 * Math.PI * freq * i) / sr)))
+    for (let c = 0; c < 2; c++)
+      buf.getChannelData(c).forEach((_, i, d) => (d[i] = 0.5 * Math.sin((2 * Math.PI * freq * i) / sr)))
     await audio.add(buf)
     audio.close()
   }
@@ -58,7 +62,12 @@ export async function exportBlob() {
   const picker = window.showSaveFilePicker
   window.showSaveFilePicker = undefined
   const click = HTMLAnchorElement.prototype.click
-  const href = new Promise(ok => (HTMLAnchorElement.prototype.click = function () { ok(this.href) }))
+  const href = new Promise(
+    ok =>
+      (HTMLAnchorElement.prototype.click = function () {
+        ok(this.href)
+      }),
+  )
   const t0 = performance.now()
   ;[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Export').click() // opens the quality menu
   await new Promise(r => setTimeout(r, 300))
@@ -117,7 +126,10 @@ export async function run() {
 export async function transcode(file, name, args) {
   const { FFmpeg } = await import('@ffmpeg/ffmpeg')
   const ffmpeg = new FFmpeg()
-  await ffmpeg.load({ coreURL: (await import('@ffmpeg/core?url')).default, wasmURL: (await import('@ffmpeg/core/wasm?url')).default })
+  await ffmpeg.load({
+    coreURL: (await import('@ffmpeg/core?url')).default,
+    wasmURL: (await import('@ffmpeg/core/wasm?url')).default,
+  })
   await ffmpeg.writeFile(file.name, new Uint8Array(await file.arrayBuffer()))
   await ffmpeg.exec(['-i', file.name, ...args, name])
   const data = await ffmpeg.readFile(name)
@@ -128,17 +140,21 @@ export async function transcode(file, name, args) {
 // Stress-test helpers (files from test/media, made by test/make-media.sh).
 export const sleep = ms => new Promise(r => setTimeout(r, ms))
 export async function file(path) {
-  const r = await fetch('/test/media/' + path)
+  const r = await fetch(`/test/media/${path}`)
   return new File([await r.blob()], path.split('/').pop(), { type: r.headers.get('content-type') ?? '' })
 }
-export const toasts = () => [...document.querySelectorAll('[role="dialog"]')].map(e => e.innerText.replace(/\n+/g, ' / '))
-export const counts = () => [...document.querySelectorAll('[role="tab"]')].map(t => t.innerText.replace(/\n/g, ' ')).join(', ')
+export const toasts = () =>
+  [...document.querySelectorAll('[role="dialog"]')].map(e => e.innerText.replace(/\n+/g, ' / '))
+export const counts = () =>
+  [...document.querySelectorAll('[role="tab"]')].map(t => t.innerText.replace(/\n/g, ' ')).join(', ')
 export async function newProject() {
   const b = [...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label') === 'New project')
   if (b && !b.disabled) {
     b.click()
     await sleep(500)
-    ;[...document.querySelectorAll('[role="alertdialog"] button')].find(b => b.textContent.trim() === 'Start new project').click()
+    ;[...document.querySelectorAll('[role="alertdialog"] button')]
+      .find(b => b.textContent.trim() === 'Start new project')
+      .click()
     await sleep(800)
   }
   await fresh()
@@ -146,10 +162,18 @@ export async function newProject() {
 // The saved project and file records, straight from IndexedDB.
 export async function saved() {
   await sleep(800)
-  const db = await new Promise(r => { const q = indexedDB.open('video-editor'); q.onsuccess = () => r(q.result) })
-  const get = (s, f) => new Promise(r => { const q = f(db.transaction(s).objectStore(s)); q.onsuccess = () => r(q.result) })
+  const db = await new Promise(r => {
+    const q = indexedDB.open('video-editor')
+    q.onsuccess = () => r(q.result)
+  })
+  const get = (s, f) =>
+    new Promise(r => {
+      const q = f(db.transaction(s).objectStore(s))
+      q.onsuccess = () => r(q.result)
+    })
   const [state, media] = await Promise.all([get('state', s => s.get('current')), get('media', s => s.getAll())])
   db.close()
   return { state, media }
 }
-export const key = (k, o = {}) => document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...o }))
+export const key = (k, o = {}) =>
+  document.body.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...o }))

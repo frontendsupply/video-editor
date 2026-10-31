@@ -1,16 +1,34 @@
 // Clip Preview: one file from the bin, played on its own, to mark the part you want (In/Out) before it goes on the
 // timeline, or to save that part as a new clip in the bin. Saving several parts splits a file into several bin clips.
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { ArrowLeftFromLine, ArrowRightFromLine, BookmarkPlus, ChevronLeft, ChevronRight, Music, Pause, Play, Plus } from 'lucide-react'
-import { lengthLabel, timecode, type Media } from '@/lib/model'
-import { OWN_KEYS } from '@/lib/utils'
-import { cssColor, useDark } from '@/lib/theme'
+
+import {
+  ArrowLeftFromLine,
+  ArrowRightFromLine,
+  BookmarkPlus,
+  ChevronLeft,
+  ChevronRight,
+  Music,
+  Pause,
+  Play,
+  Plus,
+} from 'lucide-react'
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react'
 import { headerBtn, headerIcon, primaryBtn, Tip } from '@/components/ui'
+import { lengthLabel, type Media, timecode } from '@/lib/model'
+import { cssColor, useDark } from '@/lib/theme'
+import { OWN_KEYS } from '@/lib/utils'
 
 export type Marks = { a: number; b: number }
 const MIN = 0.05 // s: the shortest part that can be marked
 
-export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
+export function ClipPreview({
+  media,
+  marks,
+  fps,
+  onMarks,
+  onAdd,
+  onSave,
+}: {
   media: Media
   marks: Marks
   fps: number
@@ -47,7 +65,9 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
     const off = () => setPlaying(false)
     el.addEventListener('play', on)
     el.addEventListener('pause', off)
-    return () => (cancelAnimationFrame(raf), el.pause(), el.removeEventListener('play', on), el.removeEventListener('pause', off))
+    return () => (
+      cancelAnimationFrame(raf), el.pause(), el.removeEventListener('play', on), el.removeEventListener('pause', off)
+    )
   }, [media.id])
 
   const seek = (x: number) => {
@@ -107,19 +127,34 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
       <div className="relative min-h-0 flex-1">
         <div className="absolute inset-3 flex items-center justify-center">
           {media.hasVideo ? (
-            <video ref={ref} src={media.url} preload="auto" className="max-h-full max-w-full bg-black ring-1 ring-line" />
+            <video
+              ref={ref}
+              src={media.url}
+              preload="auto"
+              className="max-h-full max-w-full bg-black ring-1 ring-line"
+            />
           ) : (
             <>
               <audio ref={ref} src={media.url} preload="auto" />
-              <span className="grid size-16 place-items-center bg-audio-bg text-audio"><Music size={22} /></span>
+              <span className="grid size-16 place-items-center bg-audio-bg text-audio">
+                <Music size={22} />
+              </span>
             </>
           )}
         </div>
       </div>
       <div className="shrink-0 border-t border-line bg-canvas px-3 py-2">
-        <div ref={bar} onPointerDown={e => drag(e, seek)} className="relative h-6 cursor-pointer bg-ink/6" aria-label="Clip position">
+        <div
+          ref={bar}
+          onPointerDown={e => drag(e, seek)}
+          className="relative h-6 cursor-pointer bg-ink/6"
+          aria-label="Clip position"
+        >
           {media.peaks && <Wave peaks={media.peaks} />}
-          <div className="pointer-events-none absolute inset-y-0 border-x border-accent bg-accent/15" style={{ left: pct(a), width: pct(b - a) }} />
+          <div
+            className="pointer-events-none absolute inset-y-0 border-x border-accent bg-accent/15"
+            style={{ left: pct(a), width: pct(b - a) }}
+          />
           {(['a', 'b'] as const).map(edge => (
             <Tip key={edge} label={edge === 'a' ? 'In point · drag to move (I)' : 'Out point · drag to move (O)'}>
               <span
@@ -129,30 +164,63 @@ export function ClipPreview({ media, marks, fps, onMarks, onAdd, onSave }: {
               />
             </Tip>
           ))}
-          <div className="pointer-events-none absolute -inset-y-0.5 -ml-px w-0.5 bg-playhead" style={{ left: pct(t) }} />
+          <div
+            className="pointer-events-none absolute -inset-y-0.5 -ml-px w-0.5 bg-playhead"
+            style={{ left: pct(t) }}
+          />
         </div>
       </div>
       <div className="flex h-8 shrink-0 items-center gap-2 border-t border-line bg-canvas px-1.5">
         <span className="w-28 pl-1 text-[11px] font-semibold tabular-nums">{timecode(t)}</span>
         <div className="flex flex-1 items-center justify-center gap-0.5">
-          <Tip label="Mark in point (I)"><button className={headerIcon} onClick={() => mark('a')} aria-label="Mark in point"><ArrowRightFromLine size={13} /></button></Tip>
-          <Tip label="Previous frame (←)"><button className={headerIcon} onClick={() => seek(t - 1 / fps)}><ChevronLeft size={14} /></button></Tip>
-          <Tip label={playing ? 'Pause (Space)' : 'Play (Space)'}>
-            <button className="grid size-6 place-items-center text-ink transition-colors hover:bg-ink/5" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
-              {playing ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" className="translate-x-px" />}
+          <Tip label="Mark in point (I)">
+            <button className={headerIcon} onClick={() => mark('a')} aria-label="Mark in point">
+              <ArrowRightFromLine size={13} />
             </button>
           </Tip>
-          <Tip label="Next frame (→)"><button className={headerIcon} onClick={() => seek(t + 1 / fps)}><ChevronRight size={14} /></button></Tip>
-          <Tip label="Mark out point (O)"><button className={headerIcon} onClick={() => mark('b')} aria-label="Mark out point"><ArrowLeftFromLine size={13} /></button></Tip>
+          <Tip label="Previous frame (←)">
+            <button className={headerIcon} onClick={() => seek(t - 1 / fps)}>
+              <ChevronLeft size={14} />
+            </button>
+          </Tip>
+          <Tip label={playing ? 'Pause (Space)' : 'Play (Space)'}>
+            <button
+              className="grid size-6 place-items-center text-ink transition-colors hover:bg-ink/5"
+              onClick={toggle}
+              aria-label={playing ? 'Pause' : 'Play'}
+            >
+              {playing ? (
+                <Pause size={12} fill="currentColor" />
+              ) : (
+                <Play size={12} fill="currentColor" className="translate-x-px" />
+              )}
+            </button>
+          </Tip>
+          <Tip label="Next frame (→)">
+            <button className={headerIcon} onClick={() => seek(t + 1 / fps)}>
+              <ChevronRight size={14} />
+            </button>
+          </Tip>
+          <Tip label="Mark out point (O)">
+            <button className={headerIcon} onClick={() => mark('b')} aria-label="Mark out point">
+              <ArrowLeftFromLine size={13} />
+            </button>
+          </Tip>
         </div>
         <span className="truncate text-[11px] text-muted tabular-nums">
           {timecode(a)} – {timecode(b)} · {lengthLabel(b - a, 3)}
         </span>
         <Tip label="Save the marked part as a new clip in the media bin">
-          <button className={headerBtn} onClick={onSave}><BookmarkPlus size={12} /> Save clip</button>
+          <button className={headerBtn} onClick={onSave}>
+            <BookmarkPlus size={12} /> Save clip
+          </button>
         </Tip>
-        <Tip label={media.hasVideo ? `Append the marked part to the video track` : 'Add the marked part at the playhead'}>
-          <button className={primaryBtn} onClick={onAdd}><Plus size={12} /> Add to timeline</button>
+        <Tip
+          label={media.hasVideo ? `Append the marked part to the video track` : 'Add the marked part at the playhead'}
+        >
+          <button className={primaryBtn} onClick={onAdd}>
+            <Plus size={12} /> Add to timeline
+          </button>
         </Tip>
       </div>
     </>
@@ -172,7 +240,12 @@ function Wave({ peaks }: { peaks: Float32Array }) {
     g.globalAlpha = 0.5
     for (let x = 0; x < w; x++) {
       let p = 0
-      for (let i = Math.floor((x / w) * peaks.length), end = Math.max(i + 1, Math.floor(((x + 1) / w) * peaks.length)); i < end; i++) p = Math.max(p, peaks[i])
+      for (
+        let i = Math.floor((x / w) * peaks.length), end = Math.max(i + 1, Math.floor(((x + 1) / w) * peaks.length));
+        i < end;
+        i++
+      )
+        p = Math.max(p, peaks[i])
       const bh = Math.max(1, p * h)
       g.fillRect(x, (h - bh) / 2, 1, bh)
     }

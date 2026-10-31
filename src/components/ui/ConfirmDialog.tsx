@@ -1,7 +1,8 @@
 // "Remove …?" and the like: a title, what will happen, Cancel and a confirming button. Closing (Cancel, Esc or the
 // backdrop) only reports open = false; the caller keeps its text until the dialog has animated out.
-import type { ReactNode } from 'react'
+
 import { AlertDialog } from '@base-ui/react/alert-dialog'
+import type { ReactNode } from 'react'
 import { dangerBtn, dialogBackdrop, dialogPopup, pill } from './classes'
 
 export function ConfirmDialog(props: {

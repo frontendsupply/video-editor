@@ -1,13 +1,31 @@
 // Exporting the edit, or a range of it: asks where to save (streaming straight to disk where the browser can), shows
 // the progress, and reports how it went. Also saves one audio clip's sound as an audio file.
-import { useEffect, useRef, useState, type RefObject } from 'react'
-import { play } from 'cuelume'
-import { exportProject, saveClipAudio } from '@/lib/export/export'
-import { clock, cropRange, projectDuration, type Clip, type ExportPreset, type Media, type Project, type Range } from '@/lib/model'
-import type { Player } from '@/lib/player'
-import { toast } from '@/components/ui'
 
-export function useExport({ project, media, playerRef }: { project: Project; media: Record<string, Media>; playerRef: RefObject<Player | null> }) {
+import { play } from 'cuelume'
+import { type RefObject, useEffect, useRef, useState } from 'react'
+import { toast } from '@/components/ui'
+import { exportProject, saveClipAudio } from '@/lib/export/export'
+import {
+  type Clip,
+  clock,
+  cropRange,
+  type ExportPreset,
+  type Media,
+  type Project,
+  projectDuration,
+  type Range,
+} from '@/lib/model'
+import type { Player } from '@/lib/player'
+
+export function useExport({
+  project,
+  media,
+  playerRef,
+}: {
+  project: Project
+  media: Record<string, Media>
+  playerRef: RefObject<Player | null>
+}) {
   const [progress, setProgress] = useState<number | null>(null) // percent, while exporting
   // The exported file's name, without .mp4: the first video's, until it's edited (a new project starts over).
   const [edited, setName] = useState<string | null>(null)
@@ -21,7 +39,10 @@ export function useExport({ project, media, playerRef }: { project: Project; med
     let file: FileSystemFileHandle | null = null
     if (window.showSaveFilePicker) {
       try {
-        file = await window.showSaveFilePicker({ suggestedName: fileName, types: [{ description: 'MP4 video', accept: { 'video/mp4': ['.mp4'] } }] })
+        file = await window.showSaveFilePicker({
+          suggestedName: fileName,
+          types: [{ description: 'MP4 video', accept: { 'video/mp4': ['.mp4'] } }],
+        })
       } catch {
         return // picker dismissed
       }
@@ -35,15 +56,26 @@ export function useExport({ project, media, playerRef }: { project: Project; med
     try {
       const t0 = performance.now()
       const edit = region ? cropRange(project, region.a, region.b) : project
-      const { blob, lossless } = await exportProject(edit, media, file, f => {
-        const pct = Math.floor(f * 100)
-        if (pct !== last) setProgress((last = pct))
-      }, ac.signal, preset, project)
+      const { blob, lossless } = await exportProject(
+        edit,
+        media,
+        file,
+        f => {
+          const pct = Math.floor(f * 100)
+          if (pct !== last) setProgress((last = pct))
+        },
+        ac.signal,
+        preset,
+        project,
+      )
       if (blob) download(blob, fileName)
       const secs = ((performance.now() - t0) / 1000).toFixed(1)
       play('success', { emphasis: 'strong' })
       const how = lossless ? `in ${secs}s · video copied without re-encoding` : `rendered in ${secs}s`
-      toast.add({ title: 'Video exported', description: `${file?.name ?? fileName} · ${preset.label} · ${clock(projectDuration(edit))} ${how}` })
+      toast.add({
+        title: 'Video exported',
+        description: `${file?.name ?? fileName} · ${preset.label} · ${clock(projectDuration(edit))} ${how}`,
+      })
     } catch (e) {
       if (ac.signal.aborted) play('close')
       else {
@@ -61,7 +93,10 @@ export function useExport({ project, media, playerRef }: { project: Project; med
     let file: FileSystemFileHandle | null = null
     if (window.showSaveFilePicker) {
       try {
-        file = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'M4A audio', accept: { 'audio/mp4': ['.m4a'] } }] })
+        file = await window.showSaveFilePicker({
+          suggestedName: name,
+          types: [{ description: 'M4A audio', accept: { 'audio/mp4': ['.m4a'] } }],
+        })
       } catch {
         return // picker dismissed
       }
@@ -77,14 +112,27 @@ export function useExport({ project, media, playerRef }: { project: Project; med
     })
     const done = { data: undefined, actionProps: undefined }
     try {
-      const blob = await saveClipAudio(media[clip.mediaId].file, clip.in, clip.out, file, progress => toast.update(id, { data: { progress } }), ac.signal)
+      const blob = await saveClipAudio(
+        media[clip.mediaId].file,
+        clip.in,
+        clip.out,
+        file,
+        progress => toast.update(id, { data: { progress } }),
+        ac.signal,
+      )
       if (blob) download(blob, name)
       play('success')
       toast.update(id, { ...done, title: 'Audio saved', type: 'success' })
     } catch (e) {
       if (ac.signal.aborted) return (play('close'), toast.close(id))
       play('error')
-      toast.update(id, { ...done, title: "Couldn't save the audio", description: (e as Error).message, type: 'error', timeout: 0 })
+      toast.update(id, {
+        ...done,
+        title: "Couldn't save the audio",
+        description: (e as Error).message,
+        type: 'error',
+        timeout: 0,
+      })
     }
   }
 

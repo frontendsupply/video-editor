@@ -12,8 +12,14 @@ export function FileDropOverlay({ show }: { show: boolean }) {
           exit={{ opacity: 0 }}
           className="pointer-events-none fixed inset-0 z-40 grid place-items-center bg-canvas/70 p-1.5 backdrop-blur-sm"
         >
-          <motion.div initial={{ scale: 0.96 }} animate={{ scale: 1 }} className="grid size-full place-items-center rounded-lg border-2 border-dashed border-ink/25">
-            <span className="flex items-center gap-2 text-sm font-semibold"><Upload size={16} /> Drop to add to your timeline</span>
+          <motion.div
+            initial={{ scale: 0.96 }}
+            animate={{ scale: 1 }}
+            className="grid size-full place-items-center rounded-lg border-2 border-dashed border-ink/25"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <Upload size={16} /> Drop to add to your timeline
+            </span>
           </motion.div>
         </motion.div>
       )}

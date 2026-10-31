@@ -2,7 +2,14 @@
 import type { Clip, Media, Placed, Project } from './types.ts'
 
 export const emptyProject = (): Project => ({
-  video: [], overlay: [], audio: [], overlayTracks: 0, audioTracks: 1, aspect: 'original', fit: 'contain', fps: 30,
+  video: [],
+  overlay: [],
+  audio: [],
+  overlayTracks: 0,
+  audioTracks: 1,
+  aspect: 'original',
+  fit: 'contain',
+  fps: 30,
 })
 
 export const laneOf = (c: Clip) => c.lane ?? 0

@@ -1,15 +1,40 @@
 // The project being edited, with its undo history, the selected clips and range, and the edits the toolbar, the
 // keyboard and the bin make on it.
-import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from 'react'
+
 import { play } from 'cuelume'
+import { type Dispatch, type RefObject, type SetStateAction, useEffect, useState } from 'react'
 import {
-  cropRange, emptyProject, findPlaced, mergeClips, newClip, parkMedia, placeClip, projectDuration, removeClip, rippleDelete, splitAt, splitRange,
-  unparkMedia, updateClip, type Clip, type DropTarget, type Media, type Project, type Range, type SplitTarget,
+  type Clip,
+  cropRange,
+  type DropTarget,
+  emptyProject,
+  findPlaced,
+  type Media,
+  mergeClips,
+  newClip,
+  type Project,
+  parkMedia,
+  placeClip,
+  projectDuration,
+  type Range,
+  removeClip,
+  rippleDelete,
+  type SplitTarget,
+  splitAt,
+  splitRange,
+  unparkMedia,
+  updateClip,
 } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { useHistory } from './useHistory'
 
-export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: {
+export function useEditor({
+  playerRef,
+  media,
+  setMedia,
+  seekAfter,
+  onCropped,
+}: {
   playerRef: RefObject<Player | null>
   media: Record<string, Media>
   setMedia: Dispatch<SetStateAction<Record<string, Media>>>
@@ -59,12 +84,15 @@ export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: 
   const removeMedia = (id: string) => {
     play('close', { emphasis: 'strong' })
     setProject(p => {
-      const q = [...p.video, ...p.overlay, ...p.audio].filter(c => c.mediaId === id).reduce((q, c) => removeClip(q, c.id), p)
+      const q = [...p.video, ...p.overlay, ...p.audio]
+        .filter(c => c.mediaId === id)
+        .reduce((q, c) => removeClip(q, c.id), p)
       return { ...q, parked: (q.parked ?? []).filter(x => x.clip.mediaId !== id) }
     })
     setMedia(ms => ({ ...ms, [id]: { ...ms[id], removed: true } }))
   }
-  const clipsOf = (id: string) => [...project.video, ...project.overlay, ...project.audio].filter(c => c.mediaId === id).length
+  const clipsOf = (id: string) =>
+    [...project.video, ...project.overlay, ...project.audio].filter(c => c.mediaId === id).length
   // The bin's checkbox. Unchecking takes a file's clips off the timeline but keeps them aside (cuts, trims, speed and
   // places included), so checking it again puts them back as they were; a file that was never on it is added whole.
   // Each toggle is one undo step.
@@ -114,7 +142,30 @@ export function useEditor({ playerRef, media, setMedia, seekAfter, onCropped }: 
   }
 
   return {
-    project, setProject, history, duration, used, selected, setSelected, range, setRange,
-    change, patch, undo, redo, split, place, appendVideo, addAudio, removeMedia, clipsOf, toggleMedia, del, merge, crop, mark, newProject,
+    project,
+    setProject,
+    history,
+    duration,
+    used,
+    selected,
+    setSelected,
+    range,
+    setRange,
+    change,
+    patch,
+    undo,
+    redo,
+    split,
+    place,
+    appendVideo,
+    addAudio,
+    removeMedia,
+    clipsOf,
+    toggleMedia,
+    del,
+    merge,
+    crop,
+    mark,
+    newProject,
   }
 }

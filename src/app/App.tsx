@@ -1,21 +1,9 @@
 // The editor: the header, the media bin, the preview and the timeline, wired to the hooks that hold the project, play
 // it, save it, bring files in and export.
-import { useEffect, useRef, useState } from 'react'
+
 import { bind, play } from 'cuelume'
 import { hotkeyKeyUX, hotkeyMacCompat, startKeyUX } from 'keyux'
-import { digitsFor, findPlaced, gridFor, projectDuration, trackName, updateClip, type Crop, type Media } from '@/lib/model'
-import type { Player } from '@/lib/player'
-import { plural } from '@/lib/utils'
-import { useClipPreview } from '@/hooks/useClipPreview'
-import { useEditor } from '@/hooks/useEditor'
-import { useExport } from '@/hooks/useExport'
-import { useImport } from '@/hooks/useImport'
-import { useMedia } from '@/hooks/useMedia'
-import { usePlayer } from '@/hooks/usePlayer'
-import { useProjectStorage } from '@/hooks/useProjectStorage'
-import { useShortcuts } from '@/hooks/useShortcuts'
-import { useZoom } from '@/hooks/useZoom'
-import { ConfirmDialog, ResizeHandle } from '@/components/ui'
+import { useEffect, useRef, useState } from 'react'
 import { MediaBin } from '@/components/bin/MediaBin'
 import { ExportProgress } from '@/components/export/ExportProgress'
 import { FileDropOverlay } from '@/components/FileDropOverlay'
@@ -29,6 +17,28 @@ import { Transport } from '@/components/preview/Transport'
 import { Timeline } from '@/components/timeline/Timeline'
 import { TimelineBoundary } from '@/components/timeline/TimelineBoundary'
 import { TimelineFooter } from '@/components/timeline/TimelineFooter'
+import { ConfirmDialog, ResizeHandle } from '@/components/ui'
+import { useClipPreview } from '@/hooks/useClipPreview'
+import { useEditor } from '@/hooks/useEditor'
+import { useExport } from '@/hooks/useExport'
+import { useImport } from '@/hooks/useImport'
+import { useMedia } from '@/hooks/useMedia'
+import { usePlayer } from '@/hooks/usePlayer'
+import { useProjectStorage } from '@/hooks/useProjectStorage'
+import { useShortcuts } from '@/hooks/useShortcuts'
+import { useZoom } from '@/hooks/useZoom'
+import {
+  type Crop,
+  digitsFor,
+  findPlaced,
+  gridFor,
+  type Media,
+  projectDuration,
+  trackName,
+  updateClip,
+} from '@/lib/model'
+import type { Player } from '@/lib/player'
+import { plural } from '@/lib/utils'
 
 export function App() {
   const playerRef = useRef<Player>(null)
@@ -49,11 +59,30 @@ export function App() {
   const time = () => playerRef.current!.t
 
   const { media, setMedia, readPeaks } = useMedia()
-  const editor = useEditor({ playerRef, media, setMedia, seekAfter: t => (seekAfter.current = t), onCropped: next => zoom.fitTo(projectDuration(next)) })
+  const editor = useEditor({
+    playerRef,
+    media,
+    setMedia,
+    seekAfter: t => (seekAfter.current = t),
+    onCropped: next => zoom.fitTo(projectDuration(next)),
+  })
   const { project, setProject, duration, range, selected } = editor
   const zoom = useZoom({ duration, viewW, scrollRef, time })
   const digits = digitsFor(gridFor(zoom.pps, project.fps, true)) // timeline times show only what the zoom can place
-  const { playing } = usePlayer({ playerRef, canvasRef, clockRef, playheadRef, playheadLabelRef, scrollRef, seekAfter, project, media, pps: zoom.pps, viewW, digits })
+  const { playing } = usePlayer({
+    playerRef,
+    canvasRef,
+    clockRef,
+    playheadRef,
+    playheadLabelRef,
+    scrollRef,
+    seekAfter,
+    project,
+    media,
+    pps: zoom.pps,
+    viewW,
+    digits,
+  })
   const storage = useProjectStorage({ project, media, setMedia, reset: editor.history.reset, readPeaks })
   const importer = useImport({ setMedia, setProject, readPeaks, locate: storage.locate })
   const clip = useClipPreview({ media, setMedia, setProject, playerRef })
@@ -109,7 +138,14 @@ export function App() {
   })
 
   const parked = new Set((project.parked ?? []).map(x => x.clip.mediaId)) // unchecked files with clips set aside
-  const exportTo = { project, media, onPick: exporter.start, onFps: (fps: number) => setProject(p => ({ ...p, fps })), name: exporter.name, onName: exporter.setName }
+  const exportTo = {
+    project,
+    media,
+    onPick: exporter.start,
+    onFps: (fps: number) => setProject(p => ({ ...p, fps })),
+    name: exporter.name,
+    onName: exporter.setName,
+  }
 
   return (
     <div className="flex h-full flex-col">
@@ -136,7 +172,14 @@ export function App() {
           onAppendVideo={editor.appendVideo}
           onAddAudio={editor.addAudio}
         />
-        <ResizeHandle size={binW} edge="right" min={220} max={innerWidth * 0.4} label="Resize media bin" onResize={setBinW} />
+        <ResizeHandle
+          size={binW}
+          edge="right"
+          min={220}
+          max={innerWidth * 0.4}
+          label="Resize media bin"
+          onResize={setBinW}
+        />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-content">
           <MonitorTabs
             showing={clip.monitor}
@@ -145,14 +188,28 @@ export function App() {
             onCloseClip={clip.close}
             frameMenu={
               cropping && sel ? (
-                <CropBar media={media[sel.clip.mediaId]} crop={cropping.crop} onCrop={crop => setCropping({ ...cropping, crop })} onCancel={() => setCropping(null)} onDone={keepCrop} />
+                <CropBar
+                  media={media[sel.clip.mediaId]}
+                  crop={cropping.crop}
+                  onCrop={crop => setCropping({ ...cropping, crop })}
+                  onCancel={() => setCropping(null)}
+                  onDone={keepCrop}
+                />
               ) : (
                 <FrameMenu project={project} media={media} onChange={patch => setProject(p => ({ ...p, ...patch }))} />
               )
             }
           />
           {clip.monitor === 'clip' && clip.file && (
-            <ClipPreview key={clip.file.id} media={clip.file} marks={clip.marks!} fps={project.fps} onMarks={clip.setMarks} onAdd={clip.add} onSave={clip.saveToBin} />
+            <ClipPreview
+              key={clip.file.id}
+              media={clip.file}
+              marks={clip.marks!}
+              fps={project.fps}
+              onMarks={clip.setMarks}
+              onAdd={clip.add}
+              onSave={clip.saveToBin}
+            />
           )}
           <SequenceView
             canvasRef={canvasRef}
@@ -166,7 +223,13 @@ export function App() {
             }}
             cropping={
               cropping && sel
-                ? { playerRef, placed: sel, media: media[sel.clip.mediaId], crop: cropping.crop, onCrop: crop => setCropping({ ...cropping, crop }) }
+                ? {
+                    playerRef,
+                    placed: sel,
+                    media: media[sel.clip.mediaId],
+                    crop: cropping.crop,
+                    onCrop: crop => setCropping({ ...cropping, crop }),
+                  }
                 : null
             }
             hidden={clip.monitor === 'clip'}
@@ -199,7 +262,14 @@ export function App() {
         </main>
       </div>
 
-      <ResizeHandle size={timelineH} edge="top" min={236} max={innerHeight * 0.65} label="Resize timeline" onResize={setTimelineH} />
+      <ResizeHandle
+        size={timelineH}
+        edge="top"
+        min={236}
+        max={innerHeight * 0.65}
+        label="Resize timeline"
+        onResize={setTimelineH}
+      />
 
       <TimelineBoundary onUndo={editor.undo}>
         <Timeline
@@ -242,7 +312,11 @@ export function App() {
               empty={!duration}
               onPatch={editor.patch}
               // the sound of a video, unlinked onto an audio track, has no picture to crop
-              onCrop={sel && !cropping && media[sel.clip.mediaId].hasVideo && !project.audio.includes(sel.clip) ? startCrop : null}
+              onCrop={
+                sel && !cropping && media[sel.clip.mediaId].hasVideo && !project.audio.includes(sel.clip)
+                  ? startCrop
+                  : null
+              }
               zoom={zoom}
             />
           }
@@ -255,7 +329,10 @@ export function App() {
         open={!!removing?.open}
         onOpenChange={open => !open && setRemoving(r => r && { ...r, open: false })}
         title={`Remove ${removing?.media.name}?`}
-        description={removing && `It's used by ${plural(removing.clips, { one: '# clip', other: '# clips' })} on the timeline, which will be removed too. You can undo this.`}
+        description={
+          removing &&
+          `It's used by ${plural(removing.clips, { one: '# clip', other: '# clips' })} on the timeline, which will be removed too. You can undo this.`
+        }
         confirm="Remove file"
         onConfirm={() => removing && editor.removeMedia(removing.media.id)}
       />

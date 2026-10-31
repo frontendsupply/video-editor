@@ -73,19 +73,19 @@ Double-click a file in the bin to watch it on its own. Mark In and Out, then add
 
 ## Shortcuts
 
-| Key | Action |
-|---|---|
-| Space | Play / pause |
-| S or ⌘/Ctrl+B | Split all tracks at the playhead (or at the selection edges) |
-| Delete / Backspace | Delete the selected range (ripple) or the selected clips |
-| ⇧-click, ⌘/Ctrl-click | Add a clip to the selection, or take it out |
-| ⌘/Ctrl+J | Merge the selected pieces of a split clip |
-| I / O | Mark range start / end at the playhead |
-| ← / → | Previous / next frame (with Shift: 1 second) |
-| Home / End | Go to start / end |
-| ⌘/Ctrl+Z, ⇧⌘/Ctrl+Z | Undo, redo |
-| Enter | Keep a crop |
-| Esc | Clear the selection, or cancel a crop |
+| Key                   | Action                                                       |
+| --------------------- | ------------------------------------------------------------ |
+| Space                 | Play / pause                                                 |
+| S or ⌘/Ctrl+B         | Split all tracks at the playhead (or at the selection edges) |
+| Delete / Backspace    | Delete the selected range (ripple) or the selected clips     |
+| ⇧-click, ⌘/Ctrl-click | Add a clip to the selection, or take it out                  |
+| ⌘/Ctrl+J              | Merge the selected pieces of a split clip                    |
+| I / O                 | Mark range start / end at the playhead                       |
+| ← / →                 | Previous / next frame (with Shift: 1 second)                 |
+| Home / End            | Go to start / end                                            |
+| ⌘/Ctrl+Z, ⇧⌘/Ctrl+Z   | Undo, redo                                                   |
+| Enter                 | Keep a crop                                                  |
+| Esc                   | Clear the selection, or cancel a crop                        |
 
 ## Get started
 
@@ -165,21 +165,21 @@ the scissors at the playhead's foot, or the Split ▾ button under the preview (
 
 ## Why it's fast
 
-| Choice | Why |
-|---|---|
-| **WebCodecs** for decoding and encoding | Runs on the hardware video engine, with no download and no memory cap |
-| Lazy reads from the file on disk | A 5 GB file costs a few MB of RAM |
-| `<video>` elements drawn to a `<canvas>` for preview | Native hardware playback; the next clip is pre-parked at its in-point for instant cuts |
-| Playback loop outside React | Playhead and clock are written straight to the DOM: zero re-renders while playing |
-| Shared `drawFrame()` | What you see in the preview is exactly what you export |
-| Decode straight to output size | 4K sources stay cheap when exporting 1080p |
-| Lossless copy when nothing needs re-encoding | Plain cuts of files that share one encoding export at disk speed, bit for bit |
-| Frames that need no drawing go to the encoder as decoded | Exports below 720p run about 3× faster (the encoder reading a canvas back costs ~3 ms a frame), and keep the file's full detail |
-| Export runs in a Web Worker (video decode, draw, encode, mux, file writes) | The editor stays responsive while exporting; only the audio mix, which needs Web Audio, stays on the page |
-| Audio mixed (`OfflineAudioContext`) in 30-second chunks, in step with the video encoding | Export time ≈ video encode time, and memory stays flat however long the edit is |
-| Stream to disk (`showSaveFilePicker`, Chrome/Edge) | Long exports don't fill RAM; cancel discards the partial file |
-| Timeline renders only what's near the view | Zooming into a multi-hour clip costs the same as a short one |
-| Waveforms read in Web Workers, in parallel slices | A 4-hour file's waveform is ready in seconds without blocking the UI |
+| Choice                                                                                   | Why                                                                                                                             |
+| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **WebCodecs** for decoding and encoding                                                  | Runs on the hardware video engine, with no download and no memory cap                                                           |
+| Lazy reads from the file on disk                                                         | A 5 GB file costs a few MB of RAM                                                                                               |
+| `<video>` elements drawn to a `<canvas>` for preview                                     | Native hardware playback; the next clip is pre-parked at its in-point for instant cuts                                          |
+| Playback loop outside React                                                              | Playhead and clock are written straight to the DOM: zero re-renders while playing                                               |
+| Shared `drawFrame()`                                                                     | What you see in the preview is exactly what you export                                                                          |
+| Decode straight to output size                                                           | 4K sources stay cheap when exporting 1080p                                                                                      |
+| Lossless copy when nothing needs re-encoding                                             | Plain cuts of files that share one encoding export at disk speed, bit for bit                                                   |
+| Frames that need no drawing go to the encoder as decoded                                 | Exports below 720p run about 3× faster (the encoder reading a canvas back costs ~3 ms a frame), and keep the file's full detail |
+| Export runs in a Web Worker (video decode, draw, encode, mux, file writes)               | The editor stays responsive while exporting; only the audio mix, which needs Web Audio, stays on the page                       |
+| Audio mixed (`OfflineAudioContext`) in 30-second chunks, in step with the video encoding | Export time ≈ video encode time, and memory stays flat however long the edit is                                                 |
+| Stream to disk (`showSaveFilePicker`, Chrome/Edge)                                       | Long exports don't fill RAM; cancel discards the partial file                                                                   |
+| Timeline renders only what's near the view                                               | Zooming into a multi-hour clip costs the same as a short one                                                                    |
+| Waveforms read in Web Workers, in parallel slices                                        | A 4-hour file's waveform is ready in seconds without blocking the UI                                                            |
 
 ## Development
 

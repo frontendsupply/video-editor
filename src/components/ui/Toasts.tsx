@@ -34,7 +34,11 @@ export function Toasts() {
                 <Toast.Title className="text-xs font-semibold" />
                 <Toast.Description className="text-[11px] wrap-break-word whitespace-pre-line text-muted" />
                 {typeof t.data?.progress === 'number' && (
-                  <Progress.Root value={Math.round(t.data.progress * 100)} aria-label="Progress" className="mt-1.5 flex items-center gap-2">
+                  <Progress.Root
+                    value={Math.round(t.data.progress * 100)}
+                    aria-label="Progress"
+                    className="mt-1.5 flex items-center gap-2"
+                  >
                     <Progress.Track className="h-1 flex-1 overflow-hidden bg-ink/10">
                       <Progress.Indicator className="block h-full bg-accent transition-[width] duration-150" />
                     </Progress.Track>
@@ -44,7 +48,10 @@ export function Toasts() {
               </div>
               <Toast.Action className={cn(headerBtn, 'shrink-0')} />
               {t.type !== 'loading' && (
-                <Toast.Close aria-label="Dismiss notification" className="grid size-6 shrink-0 place-items-center rounded-sm text-muted hover:bg-ink/5 hover:text-ink">
+                <Toast.Close
+                  aria-label="Dismiss notification"
+                  className="grid size-6 shrink-0 place-items-center rounded-sm text-muted hover:bg-ink/5 hover:text-ink"
+                >
                   <X size={13} />
                 </Toast.Close>
               )}

@@ -24,7 +24,8 @@ onmessage = async ({ data: { file, from, to } }: MessageEvent<PeaksJob>) => {
       if (plane.length < s.numberOfFrames) plane = new Float32Array(s.numberOfFrames)
       for (let c = 0; c < s.numberOfChannels; c++) {
         s.copyTo(plane, { planeIndex: c, format: 'f32-planar' })
-        for (let i = 0; i < s.numberOfFrames; i += 4) { // every 4th sample is plenty for a peak meter
+        for (let i = 0; i < s.numberOfFrames; i += 4) {
+          // every 4th sample is plenty for a peak meter
           const b = Math.floor((s.timestamp + i / s.sampleRate) * PEAKS_PER_SEC) - first
           const v = Math.abs(plane[i])
           if (b >= 0 && b < peaks.length && v > peaks[b]) peaks[b] = v

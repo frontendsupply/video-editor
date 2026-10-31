@@ -1,7 +1,7 @@
 // The preview player: plays the project onto the canvas, and writes the clock, the playhead and its time label
 // straight to the DOM, so playing never re-renders React.
-import { useEffect, useState, type RefObject } from 'react'
-import { timecode, type Media, type Project } from '@/lib/model'
+import { type RefObject, useEffect, useState } from 'react'
+import { type Media, type Project, timecode } from '@/lib/model'
 import { Player } from '@/lib/player'
 import { useLatest } from './useLatest'
 
@@ -38,7 +38,10 @@ export function usePlayer(o: {
       // The label is centred on the playhead (~34 px each side): nudge it (and the mark buttons beside it) to stay
       // inside the visible timeline.
       const left = x - sc.scrollLeft
-      o.playheadRef.current!.style.setProperty('--nudge', `${Math.max(0, 34 - left) - Math.max(0, 34 - (viewW - left))}px`)
+      o.playheadRef.current!.style.setProperty(
+        '--nudge',
+        `${Math.max(0, 34 - left) - Math.max(0, 34 - (viewW - left))}px`,
+      )
     }
     o.playerRef.current = player
     // Scrolling moves the visible edges, so the label is fitted again.

@@ -10,14 +10,22 @@ addEventListener('pointerdown', () => (gesture = {}), true)
 // A native drag (a file from the bin or the desktop) ends with drop or dragend; not every browser sends pointerup or
 // pointercancel for it.
 for (const type of ['pointerup', 'pointercancel', 'drop', 'dragend'])
-  addEventListener(type, () => {
-    const g = gesture // ended a task later, so the press's click or a drag's change on release still belongs to it
-    setTimeout(() => gesture === g && (gesture = null))
-  }, true)
-addEventListener('input', e => {
-  if (gesture && !gesture.field) return // input during a press stays part of the press
-  if (gesture?.field !== e.target) gesture = { field: e.target! }
-}, true)
+  addEventListener(
+    type,
+    () => {
+      const g = gesture // ended a task later, so the press's click or a drag's change on release still belongs to it
+      setTimeout(() => gesture === g && (gesture = null))
+    },
+    true,
+  )
+addEventListener(
+  'input',
+  e => {
+    if (gesture && !gesture.field) return // input during a press stays part of the press
+    if (gesture?.field !== e.target) gesture = { field: e.target! }
+  },
+  true,
+)
 // A typing run ends when focus moves on (say, Tab to a slider and arrow keys).
 const current = () => (gesture && (!gesture.field || gesture.field === document.activeElement) ? gesture : null)
 
@@ -36,11 +44,21 @@ export function useHistory<T>(initial: T) {
     })
   }, [])
   const undo = useCallback(
-    () => setS(s => (s.past.length ? { past: s.past.slice(0, -1), present: s.past.at(-1)!, future: [s.present, ...s.future], gesture: null } : s)),
+    () =>
+      setS(s =>
+        s.past.length
+          ? { past: s.past.slice(0, -1), present: s.past.at(-1)!, future: [s.present, ...s.future], gesture: null }
+          : s,
+      ),
     [],
   )
   const redo = useCallback(
-    () => setS(s => (s.future.length ? { past: [...s.past, s.present], present: s.future[0], future: s.future.slice(1), gesture: null } : s)),
+    () =>
+      setS(s =>
+        s.future.length
+          ? { past: [...s.past, s.present], present: s.future[0], future: s.future.slice(1), gesture: null }
+          : s,
+      ),
     [],
   )
 

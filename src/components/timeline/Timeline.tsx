@@ -1,19 +1,61 @@
 // The timeline: the ruler and the Select bar, Video 1, the overlay and audio tracks, and every way of editing on them
 // with the mouse (scrubbing, selecting a range, trimming, moving and dropping clips). The project lives in the app;
 // edits come back through onChange.
-import { useEffect, useRef, useState, type DragEvent, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, type RefObject } from 'react'
+
 import { ContextMenu } from '@base-ui/react/context-menu'
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import type { BaseUIEvent } from '@base-ui/react/types'
 import { play } from 'cuelume'
 import { ArrowLeftRight, Layers, Music, Plus } from 'lucide-react'
 import {
-  addTrack, clipLength, digitsFor, findPlaced, gridFor, laneOf, layoutFree, layoutVideo, moveClip, moveVideoClip, projectDuration, removeClip,
-  removeTrack, renameTrack, slideVideoClip, snapPoints, snapShift, sourceEnd, tickStep, timecode, trackKey, trackName, trimClip, trimVideoIn, unlinkAudio,
-  updateClip, type Clip, type DropTarget, type ExportPreset, type LaneKind, type Media, type Placed, type Project, type Range, type SplitTarget,
+  type DragEvent,
+  type MouseEvent as ReactMouseEvent,
+  type ReactNode,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
+import { ConfirmDialog } from '@/components/ui'
+import {
+  addTrack,
+  type Clip,
+  clipLength,
+  type DropTarget,
+  digitsFor,
+  type ExportPreset,
+  findPlaced,
+  gridFor,
+  type LaneKind,
+  laneOf,
+  layoutFree,
+  layoutVideo,
+  type Media,
+  moveClip,
+  moveVideoClip,
+  type Placed,
+  type Project,
+  projectDuration,
+  type Range,
+  removeClip,
+  removeTrack,
+  renameTrack,
+  type SplitTarget,
+  slideVideoClip,
+  snapPoints,
+  snapShift,
+  sourceEnd,
+  tickStep,
+  timecode,
+  trackKey,
+  trackName,
+  trimClip,
+  trimVideoIn,
+  unlinkAudio,
+  updateClip,
 } from '@/lib/model'
 import { cn, MAC, plural } from '@/lib/utils'
-import { ConfirmDialog } from '@/components/ui'
 import { AudioBody, ClipBody, Handle } from './ClipBody'
 import { FIT, HEAD, MEDIA_MIME, ROOM, SNAP_PX, STEP, TILE } from './constants'
 import { track } from './drag'
@@ -311,7 +353,10 @@ export function Timeline(props: Props) {
     const slid = (dx: number, ev: PointerEvent) => {
       const t = pl.start + dx / pps
       const insert = t + len / 2 < front
-      return { start: insert ? Math.max(0, t + alone([t, t + len], ev)) : Math.max(front, t + riding([t, t + len], ev)), insert }
+      return {
+        start: insert ? Math.max(0, t + alone([t, t + len], ev)) : Math.max(front, t + riding([t, t + len], ev)),
+        insert,
+      }
     }
     let moved = false // past 5 px: a drag, not a click
     track(
@@ -332,7 +377,9 @@ export function Timeline(props: Props) {
         setSlide(null)
         if (moved && lane >= 0) onChange(moveVideoClip(base, pl.clip.id, lane, t))
         else if (to && Math.abs(to.start - pl.start) > 1e-6)
-          onChange(to.insert ? moveVideoClip(base, pl.clip.id, -1, to.start) : slideVideoClip(base, pl.clip.id, to.start))
+          onChange(
+            to.insert ? moveVideoClip(base, pl.clip.id, -1, to.start) : slideVideoClip(base, pl.clip.id, to.start),
+          )
         else return // a click, or let go where it was
         play('tap', { emphasis: 'strong' })
       },
@@ -399,7 +446,8 @@ export function Timeline(props: Props) {
   }
 
   // − removes the last added track of a kind (Video 2+, Audio 2+); Video 1 and Audio 1 always stay.
-  const lastLane = (kind: LaneKind) => (kind === 'overlay' ? project.overlayTracks - 1 : project.audioTracks > 1 ? project.audioTracks - 1 : -1)
+  const lastLane = (kind: LaneKind) =>
+    kind === 'overlay' ? project.overlayTracks - 1 : project.audioTracks > 1 ? project.audioTracks - 1 : -1
   const nameOf = (kind: LaneKind, l: number) => trackName(project, trackKey(kind, l))
   const removeLane = (kind: LaneKind, lane: number) => {
     play('close', { emphasis: 'strong' })
@@ -415,14 +463,23 @@ export function Timeline(props: Props) {
   const trackControls = (kind: LaneKind) => {
     const l = lastLane(kind)
     return (
-      <TrackControls kind={kind} removable={l < 0 ? null : nameOf(kind, l)} onRemove={() => askRemove(kind)} onAdd={() => onChange(addTrack(project, kind))} />
+      <TrackControls
+        kind={kind}
+        removable={l < 0 ? null : nameOf(kind, l)}
+        onRemove={() => askRemove(kind)}
+        onAdd={() => onChange(addTrack(project, kind))}
+      />
     )
   }
   // A track header: its icon and name, click the name to rename it.
   const named = (key: string, icon: ReactNode, tip?: string) => (
     <div className={rowHead}>
       {icon}
-      <TrackName name={trackName(project, key)} tip={`${tip ? `${tip}. ` : ''}Click to rename`} onRename={name => onChange(renameTrack(project, key, name))} />
+      <TrackName
+        name={trackName(project, key)}
+        tip={`${tip ? `${tip}. ` : ''}Click to rename`}
+        onRename={name => onChange(renameTrack(project, key, name))}
+      />
     </div>
   )
   const setFps = (fps: number) => onChange({ ...project, fps })
@@ -433,35 +490,44 @@ export function Timeline(props: Props) {
     // nothing to select until there's something on the timeline
     ...(empty
       ? []
-      : [{
-          key: 'sel',
-          size: 'mt-1 h-5.5',
-          header: <div className={rowHead}><ArrowLeftRight size={13} /> Select</div>,
-          lane: (
-            <RangeBar
-              range={range}
-              pps={pps}
-              digits={digits}
-              tools={!selecting}
-              onDrag={dragRange}
-              onDelete={props.onDeleteRange}
-              onCrop={props.onCrop}
-              project={project}
-              media={media}
-              onExport={props.onExport}
-              onFps={setFps}
-              name={props.exportName}
-              onName={props.onExportName}
-            />
-          ),
-        }]),
+      : [
+          {
+            key: 'sel',
+            size: 'mt-1 h-5.5',
+            header: (
+              <div className={rowHead}>
+                <ArrowLeftRight size={13} /> Select
+              </div>
+            ),
+            lane: (
+              <RangeBar
+                range={range}
+                pps={pps}
+                digits={digits}
+                tools={!selecting}
+                onDrag={dragRange}
+                onDelete={props.onDeleteRange}
+                onCrop={props.onCrop}
+                project={project}
+                media={media}
+                onExport={props.onExport}
+                onFps={setFps}
+                name={props.exportName}
+                onName={props.onExportName}
+              />
+            ),
+          },
+        ]),
     {
       key: 'v1',
       size: 'mt-1.5 h-14',
       header: named('v1', <Layers size={13} className="shrink-0" />),
       lane: (
         // Video 1: magnetic, each clip right after the one before plus its gap; a sideways drag slides or moves a clip
-        <div className={cn('relative flex h-full items-stretch', lane, dropRing('v1'))} {...dropProps('v1', { kind: 'video' })}>
+        <div
+          className={cn('relative flex h-full items-stretch', lane, dropRing('v1'))}
+          {...dropProps('v1', { kind: 'video' })}
+        >
           {main.map((pl, i) => {
             const moved = slide && (pl.clip.id === slide.id || (!slide.insert && i > slid))
             const w = (pl.end - pl.start) * pps
@@ -476,7 +542,11 @@ export function Timeline(props: Props) {
                   drag?.id === pl.clip.id && 'opacity-40',
                   moved && 'z-30',
                 )}
-                style={{ width: w, marginLeft: (pl.clip.gap ?? 0) * pps, transform: moved ? `translateX(${(slide.start - main[slid].start) * pps}px)` : undefined }}
+                style={{
+                  width: w,
+                  marginLeft: (pl.clip.gap ?? 0) * pps,
+                  transform: moved ? `translateX(${(slide.start - main[slid].start) * pps}px)` : undefined,
+                }}
               >
                 <ClipBody pl={pl} media={media[pl.clip.mediaId]} width={w} view={nearClip(pl)} />
                 {handles(pl)}
@@ -495,9 +565,18 @@ export function Timeline(props: Props) {
               <div
                 key="ghost"
                 className="pointer-events-none absolute top-0 bottom-0 z-30 px-0.5"
-                style={{ left: pl.start * pps + drag!.dx, width: (pl.end - pl.start) * pps, transform: `translateY(${drag!.dy}px)` }}
+                style={{
+                  left: pl.start * pps + drag!.dx,
+                  width: (pl.end - pl.start) * pps,
+                  transform: `translateY(${drag!.dy}px)`,
+                }}
               >
-                <ClipBody pl={pl} media={media[pl.clip.mediaId]} width={(pl.end - pl.start) * pps} view={nearClip(pl)} />
+                <ClipBody
+                  pl={pl}
+                  media={media[pl.clip.mediaId]}
+                  width={(pl.end - pl.start) * pps}
+                  view={nearClip(pl)}
+                />
               </div>
             ))}
           <button
@@ -513,30 +592,54 @@ export function Timeline(props: Props) {
       ),
     },
     // Video 2, 3, …: free-placed overlays, drawn on top of the tracks below them in number
-    ...Array.from({ length: project.overlayTracks }, (_, l): Row => ({
-      key: `o${l}`,
-      size: 'mt-1.5 h-14',
-      header: named(`o${l}`, <Layers size={13} className="shrink-0" />, `Drawn on top of ${l ? nameOf('overlay', l - 1) : trackName(project, 'v1')}`),
-      lane: (
-        <div className={cn('relative h-full', lane, dropRing(`o${l}`))} {...dropProps(`o${l}`, { kind: 'overlay', lane: l })}>
-          {!project.overlay.some(c => laneOf(c) === l) && <span className={hint}>Drag a video or image from the media bin here to overlay it</span>}
-          {layoutFree(project.overlay).filter(pl => laneOf(pl.clip) === l).map(pl => freeClip(pl, 'overlay'))}
-        </div>
-      ),
-    })),
+    ...Array.from(
+      { length: project.overlayTracks },
+      (_, l): Row => ({
+        key: `o${l}`,
+        size: 'mt-1.5 h-14',
+        header: named(
+          `o${l}`,
+          <Layers size={13} className="shrink-0" />,
+          `Drawn on top of ${l ? nameOf('overlay', l - 1) : trackName(project, 'v1')}`,
+        ),
+        lane: (
+          <div
+            className={cn('relative h-full', lane, dropRing(`o${l}`))}
+            {...dropProps(`o${l}`, { kind: 'overlay', lane: l })}
+          >
+            {!project.overlay.some(c => laneOf(c) === l) && (
+              <span className={hint}>Drag a video or image from the media bin here to overlay it</span>
+            )}
+            {layoutFree(project.overlay)
+              .filter(pl => laneOf(pl.clip) === l)
+              .map(pl => freeClip(pl, 'overlay'))}
+          </div>
+        ),
+      }),
+    ),
     { key: 'add-v', size: 'mt-1.5 h-7', header: trackControls('overlay'), lane: null, band: true },
     // Audio 1, 2, …: music, voiceover and unlinked video sound, placed freely
-    ...Array.from({ length: project.audioTracks }, (_, l): Row => ({
-      key: `a${l}`,
-      size: 'mt-1.5 h-9',
-      header: named(`a${l}`, <Music size={13} className="shrink-0" />),
-      lane: (
-        <div className={cn('relative h-full', lane, dropRing(`a${l}`))} {...dropProps(`a${l}`, { kind: 'audio', lane: l })}>
-          {!project.audio.some(c => laneOf(c) === l) && <span className={hint}>Drag audio from the media bin here to mix it in</span>}
-          {layoutFree(project.audio).filter(pl => laneOf(pl.clip) === l).map(pl => freeClip(pl, 'audio'))}
-        </div>
-      ),
-    })),
+    ...Array.from(
+      { length: project.audioTracks },
+      (_, l): Row => ({
+        key: `a${l}`,
+        size: 'mt-1.5 h-9',
+        header: named(`a${l}`, <Music size={13} className="shrink-0" />),
+        lane: (
+          <div
+            className={cn('relative h-full', lane, dropRing(`a${l}`))}
+            {...dropProps(`a${l}`, { kind: 'audio', lane: l })}
+          >
+            {!project.audio.some(c => laneOf(c) === l) && (
+              <span className={hint}>Drag audio from the media bin here to mix it in</span>
+            )}
+            {layoutFree(project.audio)
+              .filter(pl => laneOf(pl.clip) === l)
+              .map(pl => freeClip(pl, 'audio'))}
+          </div>
+        ),
+      }),
+    ),
     { key: 'add-a', size: 'mt-1.5 h-7', header: trackControls('audio'), lane: null, band: true },
   ]
 
@@ -550,8 +653,14 @@ export function Timeline(props: Props) {
         <ScrollArea.Viewport ref={props.scrollRef} className="h-full overscroll-none">
           <ScrollArea.Content className="flex">
             <div className="sticky left-0 z-40 w-28 shrink-0 border-r border-line bg-canvas pb-8 text-[11px] font-medium text-muted">
-              <div className="flex h-6 items-center border-b border-line px-2.5 text-[10px] tracking-wide text-muted uppercase">Timeline</div>
-              {rows.map(r => <div key={r.key} className={cn(r.size, r.band && 'border-y border-line')}>{r.header}</div>)}
+              <div className="flex h-6 items-center border-b border-line px-2.5 text-[10px] tracking-wide text-muted uppercase">
+                Timeline
+              </div>
+              {rows.map(r => (
+                <div key={r.key} className={cn(r.size, r.band && 'border-y border-line')}>
+                  {r.header}
+                </div>
+              ))}
             </div>
 
             <ContextMenu.Root>
@@ -571,7 +680,12 @@ export function Timeline(props: Props) {
                 ))}
 
                 {/* snap guide: the exact time a dragged edge has locked onto */}
-                {guide !== null && <div className="pointer-events-none absolute top-0 bottom-0 z-25 -ml-px w-px bg-accent" style={{ left: guide * pps }} />}
+                {guide !== null && (
+                  <div
+                    className="pointer-events-none absolute top-0 bottom-0 z-25 -ml-px w-px bg-accent"
+                    style={{ left: guide * pps }}
+                  />
+                )}
 
                 {/* time under the mouse on the ruler */}
                 <span
@@ -637,7 +751,11 @@ export function Timeline(props: Props) {
             </ContextMenu.Root>
           </ScrollArea.Content>
         </ScrollArea.Viewport>
-        <ScrollArea.Scrollbar orientation="horizontal" className="mb-0.5 h-1.5 rounded-xs bg-ink/4" style={{ insetInlineStart: HEAD }}>
+        <ScrollArea.Scrollbar
+          orientation="horizontal"
+          className="mb-0.5 h-1.5 rounded-xs bg-ink/4"
+          style={{ insetInlineStart: HEAD }}
+        >
           <ScrollArea.Thumb className="h-full rounded-xs bg-ink/25 transition-colors hover:bg-ink/45 active:bg-ink/50" />
         </ScrollArea.Scrollbar>
         <ScrollArea.Scrollbar orientation="vertical" className="mr-0.5 w-1.5 rounded-xs bg-ink/4">
@@ -650,7 +768,10 @@ export function Timeline(props: Props) {
         open={!!confirm?.open}
         onOpenChange={open => !open && setConfirm(c => c && { ...c, open: false })}
         title={confirm && `Remove ${nameOf(confirm.kind, confirm.lane)}?`}
-        description={confirm && `It has ${plural(confirm.clips, { one: '# clip', other: '# clips' })}, which will be removed with the track. You can undo this.`}
+        description={
+          confirm &&
+          `It has ${plural(confirm.clips, { one: '# clip', other: '# clips' })}, which will be removed with the track. You can undo this.`
+        }
         confirm="Remove track"
         onConfirm={() => confirm && removeLane(confirm.kind, confirm.lane)}
       />

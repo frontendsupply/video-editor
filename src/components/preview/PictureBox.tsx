@@ -2,13 +2,18 @@
 // selected one gets a box with corner handles that resize it, the opposite corner staying put. Edges and centres snap
 // to the frame's, with a guide line (⌥ places freely). The box shows only while its picture is on screen at the
 // playhead.
-import { useEffect, useState, type PointerEvent as ReactPointerEvent, type RefObject } from 'react'
+import { type PointerEvent as ReactPointerEvent, type RefObject, useEffect, useState } from 'react'
 import { findPlaced, layerRect, type Media, type Placed, type Project, type Transform } from '@/lib/model'
 import type { Player } from '@/lib/player'
 import { clamp, cn } from '@/lib/utils'
 
 const SCALE = [0.05, 10] // smallest and largest, × the fitted size
-const CORNERS = [[-1, -1], [1, -1], [-1, 1], [1, 1]] as const
+const CORNERS = [
+  [-1, -1],
+  [1, -1],
+  [-1, 1],
+  [1, 1],
+] as const
 const SNAP = 6 // px on screen: how close an edge or centre comes before it lands on the frame's
 
 // The frame's edge or centre line (0, size / 2, size) within SNAP of any of `points`: the shift that lands the nearest
@@ -23,7 +28,15 @@ function snapTo(points: number[], size: number) {
   return best
 }
 
-export function PictureBox({ canvasRef, playerRef, project, media, selected, onSelect, onTransform }: {
+export function PictureBox({
+  canvasRef,
+  playerRef,
+  project,
+  media,
+  selected,
+  onSelect,
+  onTransform,
+}: {
   canvasRef: RefObject<HTMLCanvasElement | null>
   playerRef: RefObject<Player | null>
   project: Project
@@ -109,10 +122,16 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
   return (
     <div className="absolute" style={{ left: view.x, top: view.y, width: view.w, height: view.h }} onPointerDown={pick}>
       {guides?.x !== undefined && (
-        <span className="pointer-events-none absolute inset-y-0 w-px bg-accent" style={{ left: Math.round(Math.min(guides.x, view.w - 1)) }} />
+        <span
+          className="pointer-events-none absolute inset-y-0 w-px bg-accent"
+          style={{ left: Math.round(Math.min(guides.x, view.w - 1)) }}
+        />
       )}
       {guides?.y !== undefined && (
-        <span className="pointer-events-none absolute inset-x-0 h-px bg-accent" style={{ top: Math.round(Math.min(guides.y, view.h - 1)) }} />
+        <span
+          className="pointer-events-none absolute inset-x-0 h-px bg-accent"
+          style={{ top: Math.round(Math.min(guides.y, view.h - 1)) }}
+        />
       )}
       {picture && on && r && (
         <div
@@ -124,7 +143,10 @@ export function PictureBox({ canvasRef, playerRef, project, media, selected, onS
             <span
               key={`${sx}${sy}`}
               onPointerDown={e => resize(e, picture.clip.id, sx, sy)}
-              className={cn('absolute size-2 -translate-1/2 bg-white ring-1 ring-accent', sx === sy ? 'cursor-nwse-resize' : 'cursor-nesw-resize')}
+              className={cn(
+                'absolute size-2 -translate-1/2 bg-white ring-1 ring-accent',
+                sx === sy ? 'cursor-nwse-resize' : 'cursor-nesw-resize',
+              )}
               style={{ left: sx > 0 ? '100%' : 0, top: sy > 0 ? '100%' : 0 }}
             />
           ))}
@@ -148,7 +170,12 @@ export function useOnScreen(playerRef: RefObject<Player | null>, pl: Placed | nu
 
 // Where the canvas sits in the preview (it's centred and scaled to fit), to lay handles over it.
 export function useCanvasView(canvasRef: RefObject<HTMLCanvasElement | null>) {
-  const read = (c = canvasRef.current) => ({ x: c?.offsetLeft ?? 0, y: c?.offsetTop ?? 0, w: c?.offsetWidth ?? 0, h: c?.offsetHeight ?? 0 })
+  const read = (c = canvasRef.current) => ({
+    x: c?.offsetLeft ?? 0,
+    y: c?.offsetTop ?? 0,
+    w: c?.offsetWidth ?? 0,
+    h: c?.offsetHeight ?? 0,
+  })
   const [view, setView] = useState(() => read()) // a box opened over a canvas already there is placed at once
   useEffect(() => {
     const c = canvasRef.current!

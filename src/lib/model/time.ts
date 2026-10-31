@@ -10,7 +10,8 @@ export function timecode(t: number, digits: 0 | 1 | 3 = 3) {
 }
 
 // Seconds between ruler labels at a zoom (pixels per second): at least 90 px apart, with a minor tick every fifth.
-export const tickStep = (pps: number) => [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 14400].find(s => s * pps >= 90) ?? 28800
+export const tickStep = (pps: number) =>
+  [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1200, 1800, 3600, 7200, 14400].find(s => s * pps >= 90) ?? 28800
 // The time grid mouse edits land on at a zoom. Snapping on: the ruler's minor ticks, so times come out round. Off: the
 // finest of a frame, 0.1 s, 0.5 s, 1 s, 5 s, … that's at least 3 px wide. Zoomed out, the extra digits would only be
 // noise from the mouse position; milliseconds (frames) come in once a frame is wide enough to aim at.

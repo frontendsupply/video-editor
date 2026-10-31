@@ -29,7 +29,11 @@ export function withoutVideo(video: Clip[], id: string): Clip[] {
   const out = layoutVideo(video).find(x => x.clip.id === id)
   if (!out) return video
   const len = out.end - out.start
-  return packVideo(layoutVideo(video).filter(x => x !== out && x.clip.id !== id).map(x => ({ clip: x.clip, start: x.start >= out.end ? x.start - len : x.start })))
+  return packVideo(
+    layoutVideo(video)
+      .filter(x => x !== out && x.clip.id !== id)
+      .map(x => ({ clip: x.clip, start: x.start >= out.end ? x.start - len : x.start })),
+  )
 }
 
 // Put a clip into Video 1 at time t, slotted between the clips by where `at` lands (by default its middle). It never

@@ -27,7 +27,11 @@ export function Ruler(props: {
       }}
     >
       {Array.from({ length: props.count }, (_, k) => props.first + k).map(i => (
-        <span key={i} className="absolute top-0 bottom-0 border-l border-ink/20 pt-1 pl-1 text-[10px] text-muted tabular-nums" style={{ left: i * step * pps }}>
+        <span
+          key={i}
+          className="absolute top-0 bottom-0 border-l border-ink/20 pt-1 pl-1 text-[10px] text-muted tabular-nums"
+          style={{ left: i * step * pps }}
+        >
           {timecode(i * step, step < 1 ? 1 : 0)}
         </span>
       ))}

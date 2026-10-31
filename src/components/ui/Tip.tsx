@@ -1,6 +1,7 @@
 // A tooltip on any element: wraps it as the trigger.
-import type { ReactElement } from 'react'
+
 import { Tooltip } from '@base-ui/react/tooltip'
+import type { ReactElement } from 'react'
 
 export function Tip({ label, children }: { label: string; children: ReactElement }) {
   return (

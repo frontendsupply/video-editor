@@ -17,12 +17,14 @@ export function outputSize(p: Project, media: Record<string, { width: number; he
 }
 
 // The size of the part of a w×h picture its crop leaves.
-export const cropSize = (w: number, h: number, c?: Crop): [number, number] => (c ? [w * (1 - c.l - c.r), h * (1 - c.t - c.b)] : [w, h])
+export const cropSize = (w: number, h: number, c?: Crop): [number, number] =>
+  c ? [w * (1 - c.l - c.r), h * (1 - c.t - c.b)] : [w, h]
 
 // The frame rates offered. A new project takes the one nearest its first video's, so that a plain cut of it can be
 // copied as it is (see plainCuts) instead of every frame being re-encoded.
 export const FRAME_RATES = [24, 25, 30, 60]
-export const nearestRate = (fps: number) => FRAME_RATES.reduce((a, b) => (Math.abs(b - fps) < Math.abs(a - fps) ? b : a))
+export const nearestRate = (fps: number) =>
+  FRAME_RATES.reduce((a, b) => (Math.abs(b - fps) < Math.abs(a - fps) ? b : a))
 
 // Export quality: Original keeps the full output size; the rest cap the short edge and lower the bitrate.
 
@@ -32,7 +34,11 @@ export const EXPORT_PRESETS: ExportPreset[] = [
   { label: '720p', short: 720, quality: 'medium' },
 ]
 
-export function exportSize(p: Project, media: Record<string, { width: number; height: number }>, short?: number): [number, number] {
+export function exportSize(
+  p: Project,
+  media: Record<string, { width: number; height: number }>,
+  short?: number,
+): [number, number] {
   const [W, H] = outputSize(p, media)
   const s = short ? Math.min(1, short / Math.min(W, H)) : 1
   return [Math.round(W * s) & ~1, Math.round(H * s) & ~1]

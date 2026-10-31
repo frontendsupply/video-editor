@@ -1,6 +1,6 @@
 // Every edit takes a project and returns a new one; nothing is changed in place, so undo is just the previous value.
 import { layoutAll, layoutFree, projectDuration } from './layout.ts'
-import { clipLength, laneOf, newClip, sourceTime } from './project.ts'
+import { laneOf, newClip, sourceTime } from './project.ts'
 import type { Clip, DropTarget, Media, Placed, Project, SplitTarget } from './types.ts'
 import { insertVideo, layoutVideo, packVideo, restoreVideo, withoutVideo } from './video1.ts'
 
@@ -14,7 +14,10 @@ const mapClips = (p: Project, f: (c: Clip) => Clip[]): Project => ({
 export const updateClip = (p: Project, id: string, patch: Partial<Clip>) =>
   mapClips(p, c => (c.id === id ? [{ ...c, ...patch }] : [c]))
 
-export const removeClip = (p: Project, id: string) => ({ ...mapClips(p, c => (c.id === id ? [] : [c])), video: withoutVideo(p.video, id) })
+export const removeClip = (p: Project, id: string) => ({
+  ...mapClips(p, c => (c.id === id ? [] : [c])),
+  video: withoutVideo(p.video, id),
+})
 
 // Slide a Video 1 clip so it starts at `start` (not before the clip in front of it ends); the clips after it ride along.
 export function slideVideoClip(p: Project, id: string, start: number): Project {
@@ -57,9 +60,16 @@ export function mergeClips(p: Project, ids: string[]): Project {
   const grow = new Map<string, number>() // the first clip of a run → the out of its last
   const gone = new Set<string>()
   const joins = (x: Placed, y: Placed) =>
-    want.has(x.clip.id) && want.has(y.clip.id) && laneOf(x.clip) === laneOf(y.clip) && x.clip.mediaId === y.clip.mediaId &&
-    x.clip.speed === y.clip.speed && !x.clip.muted === !y.clip.muted && Math.abs(y.start - x.end) < 1e-6 && Math.abs(y.clip.in - x.clip.out) < 1e-6
-  const byLane = (clips: Clip[]) => layoutFree(clips).sort((x, y) => laneOf(x.clip) - laneOf(y.clip) || x.start - y.start)
+    want.has(x.clip.id) &&
+    want.has(y.clip.id) &&
+    laneOf(x.clip) === laneOf(y.clip) &&
+    x.clip.mediaId === y.clip.mediaId &&
+    x.clip.speed === y.clip.speed &&
+    !x.clip.muted === !y.clip.muted &&
+    Math.abs(y.start - x.end) < 1e-6 &&
+    Math.abs(y.clip.in - x.clip.out) < 1e-6
+  const byLane = (clips: Clip[]) =>
+    layoutFree(clips).sort((x, y) => laneOf(x.clip) - laneOf(y.clip) || x.start - y.start)
   for (const placed of [layoutVideo(p.video), byLane(p.overlay), byLane(p.audio)]) {
     let first: string | undefined
     placed.forEach((y, i) => {
@@ -82,14 +92,19 @@ export function rippleDelete(p: Project, a: number, b: number): Project {
       .map(x => (x.start >= b - EXACT ? { ...x.clip, start: Math.max(0, x.clip.start - (b - a)) } : x.clip))
   return {
     ...q,
-    video: packVideo(layoutVideo(q.video).filter(x => !inside(x)).map(x => ({ clip: x.clip, start: x.start >= b - EXACT ? x.start - (b - a) : x.start }))),
+    video: packVideo(
+      layoutVideo(q.video)
+        .filter(x => !inside(x))
+        .map(x => ({ clip: x.clip, start: x.start >= b - EXACT ? x.start - (b - a) : x.start })),
+    ),
     overlay: free(q.overlay),
     audio: free(q.audio),
   }
 }
 
 // Keep only [a, b] of every track: everything after b and before a is cut away, and what's left starts at 0.
-export const cropRange = (p: Project, a: number, b: number) => rippleDelete(rippleDelete(p, b, projectDuration(p)), 0, a)
+export const cropRange = (p: Project, a: number, b: number) =>
+  rippleDelete(rippleDelete(p, b, projectDuration(p)), 0, a)
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
 const MIN_LEN = 0.1
@@ -123,7 +138,8 @@ export function moveVideoClip(p: Project, id: string, lane: number, t: number): 
   const clip = p.video.find(c => c.id === id) ?? p.overlay.find(c => c.id === id)
   if (!clip) return p
   const rest = { ...p, video: withoutVideo(p.video, id), overlay: p.overlay.filter(c => c.id !== id) }
-  if (lane >= 0) return { ...rest, overlay: [...rest.overlay, { ...clip, start: Math.max(0, t), lane, gap: undefined }] }
+  if (lane >= 0)
+    return { ...rest, overlay: [...rest.overlay, { ...clip, start: Math.max(0, t), lane, gap: undefined }] }
   return { ...rest, video: insertVideo(rest.video, clip, Math.max(0, t)) }
 }
 
@@ -132,7 +148,8 @@ export function moveVideoClip(p: Project, id: string, lane: number, t: number): 
 export function unlinkAudio(p: Project, id: string): Project {
   const pl = layoutAll(p).find(x => x.clip.id === id)
   if (!pl || p.audio.includes(pl.clip) || pl.clip.muted) return p
-  const taken = (l: number) => layoutFree(p.audio).some(x => laneOf(x.clip) === l && x.start < pl.end && pl.start < x.end)
+  const taken = (l: number) =>
+    layoutFree(p.audio).some(x => laneOf(x.clip) === l && x.start < pl.end && pl.start < x.end)
   let lane = 0
   while (lane < p.audioTracks && taken(lane)) lane++
   return {
@@ -159,7 +176,9 @@ export const audio1End = (p: Project) => Math.max(0, ...layoutFree(p.audio.filte
 export function parkMedia(p: Project, mediaId: string): Project {
   const mine = (c: Clip) => c.mediaId === mediaId
   const parked = [
-    ...layoutVideo(p.video).filter(x => mine(x.clip)).map(x => ({ track: 'video' as const, clip: { ...x.clip, start: x.start } })),
+    ...layoutVideo(p.video)
+      .filter(x => mine(x.clip))
+      .map(x => ({ track: 'video' as const, clip: { ...x.clip, start: x.start } })),
     ...p.overlay.filter(mine).map(clip => ({ track: 'overlay' as const, clip })),
     ...p.audio.filter(mine).map(clip => ({ track: 'audio' as const, clip })),
   ]
@@ -174,9 +193,14 @@ export function parkMedia(p: Project, mediaId: string): Project {
 export function unparkMedia(p: Project, m: Media): Project {
   const mine = (p.parked ?? []).filter(x => x.clip.mediaId === m.id)
   const rest = { ...p, parked: (p.parked ?? []).filter(x => x.clip.mediaId !== m.id) }
-  if (!mine.length) return m.hasVideo ? { ...rest, video: [...rest.video, newClip(m)] } : { ...rest, audio: [...rest.audio, newClip(m, audio1End(rest))] }
+  if (!mine.length)
+    return m.hasVideo
+      ? { ...rest, video: [...rest.video, newClip(m)] }
+      : { ...rest, audio: [...rest.audio, newClip(m, audio1End(rest))] }
   const back = (track: 'video' | 'overlay' | 'audio') => mine.filter(x => x.track === track).map(x => x.clip)
-  const video = back('video').sort((a, b) => a.start - b.start).reduce((v, c) => restoreVideo(v, c, c.start), rest.video)
+  const video = back('video')
+    .sort((a, b) => a.start - b.start)
+    .reduce((v, c) => restoreVideo(v, c, c.start), rest.video)
   const [overlay, audio] = [back('overlay'), back('audio')]
   return {
     ...rest,

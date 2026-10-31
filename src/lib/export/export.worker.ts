@@ -2,13 +2,46 @@
 // the GPU's hardware encoder), muxing, and writing the file. Web Audio, which the mix needs, doesn't exist in workers,
 // so the page renders the audio in chunks and posts them in (see export.ts).
 import {
-  ALL_FORMATS, AudioSample, AudioSampleSource, BlobSource, BufferTarget, CanvasSink, EncodedPacketSink, EncodedVideoPacketSource, Input,
-  Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_MEDIUM, StreamTarget, VideoSample, VideoSampleSink, VideoSampleSource,
-  getFirstEncodableAudioCodec, getFirstEncodableVideoCodec, type EncodedPacket, type StreamTargetChunk, type VideoCodec, type WrappedCanvas,
+  ALL_FORMATS,
+  AudioSample,
+  AudioSampleSource,
+  BlobSource,
+  BufferTarget,
+  CanvasSink,
+  type EncodedPacket,
+  EncodedPacketSink,
+  EncodedVideoPacketSource,
+  getFirstEncodableAudioCodec,
+  getFirstEncodableVideoCodec,
+  Input,
+  Mp4OutputFormat,
+  Output,
+  QUALITY_HIGH,
+  QUALITY_MEDIUM,
+  StreamTarget,
+  type StreamTargetChunk,
+  type VideoCodec,
+  VideoSample,
+  VideoSampleSink,
+  VideoSampleSource,
+  type WrappedCanvas,
 } from 'mediabunny'
 import {
-  MIX_RATE, cropSize, drawFrame, exportSize, laneOf, layerRect, layoutFree, layoutVideo, plainCuts, projectDuration, sourceTime,
-  type ExportPreset, type Media, type Placed, type Project,
+  cropSize,
+  drawFrame,
+  type ExportPreset,
+  exportSize,
+  laneOf,
+  layerRect,
+  layoutFree,
+  layoutVideo,
+  type Media,
+  MIX_RATE,
+  type Placed,
+  type Project,
+  plainCuts,
+  projectDuration,
+  sourceTime,
 } from '@/lib/model'
 
 export type ExportMedia = Pick<Media, 'file' | 'width' | 'height' | 'image'>
@@ -46,7 +79,13 @@ onmessage = ({ data }: MessageEvent<ToWorker>) => {
   else if (data.type === 'cancel') ac.abort()
   else if (data.type === 'audio-end') chain = chain.then(() => (audio?.close(), mixed()))
   else {
-    const sample = new AudioSample({ data: data.data, format: 'f32-planar', numberOfChannels: 2, sampleRate: MIX_RATE, timestamp: data.timestamp })
+    const sample = new AudioSample({
+      data: data.data,
+      format: 'f32-planar',
+      numberOfChannels: 2,
+      sampleRate: MIX_RATE,
+      timestamp: data.timestamp,
+    })
     chain = chain.then(async () => {
       if (audio) await audio.add(sample) // waits while the encoder is busy
       sample.close()
@@ -63,11 +102,13 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
     // Disk writes only commit on close(); the muxer closes on cancel too, so only commit once we got to finalize.
     let commit = false
     const fileStream = file && (await file.createWritable())
-    const writable = fileStream && new WritableStream<StreamTargetChunk>({
-      write: chunk => fileStream.write(chunk),
-      close: () => (commit ? fileStream.close() : fileStream.abort()),
-      abort: () => fileStream.abort(),
-    })
+    const writable =
+      fileStream &&
+      new WritableStream<StreamTargetChunk>({
+        write: chunk => fileStream.write(chunk),
+        close: () => (commit ? fileStream.close() : fileStream.abort()),
+        abort: () => fileStream.abort(),
+      })
     const target = writable ? new StreamTarget(writable, { chunked: true }) : new BufferTarget()
     const output = new Output({ format, target })
 
@@ -75,15 +116,29 @@ async function run({ p, media, file, preset, frame, audio: withAudio }: ExportJo
     const plan = preset.quality === 'high' ? await copyPlan(p, media, W, H) : null
     let video: VideoSampleSource | EncodedVideoPacketSource
     let canvas: OffscreenCanvas | null = null
-    if (plan) output.addVideoTrack((video = new EncodedVideoPacketSource(plan.codec))) // the files' own timing
+    if (plan)
+      output.addVideoTrack((video = new EncodedVideoPacketSource(plan.codec))) // the files' own timing
     else {
-      const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), { width: W, height: H, frameRate: p.fps, quality })
-      if (!videoCodec) throw new Error(`This browser can't encode ${W}×${H} video. Choose a smaller size, such as 720p, and export again.`)
+      const videoCodec = await getFirstEncodableVideoCodec(format.getSupportedVideoCodecs(), {
+        width: W,
+        height: H,
+        frameRate: p.fps,
+        quality,
+      })
+      if (!videoCodec)
+        throw new Error(
+          `This browser can't encode ${W}×${H} video. Choose a smaller size, such as 720p, and export again.`,
+        )
       canvas = new OffscreenCanvas(W, H)
       output.addVideoTrack((video = new VideoSampleSource({ codec: videoCodec, quality })), { frameRate: p.fps })
     }
     // No audio encoder in this browser: the mix is still taken, and dropped.
-    const audioCodec = withAudio && (await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), { numberOfChannels: 2, sampleRate: MIX_RATE }))
+    const audioCodec =
+      withAudio &&
+      (await getFirstEncodableAudioCodec(format.getSupportedAudioCodecs(), {
+        numberOfChannels: 2,
+        sampleRate: MIX_RATE,
+      }))
     if (audioCodec) output.addAudioTrack((audio = new AudioSampleSource({ codec: audioCodec, quality })))
 
     await output.start()
@@ -125,26 +180,33 @@ async function copyPlan(p: Project, media: Record<string, ExportMedia>, W: numbe
     let first: { codec: VideoCodec; config: VideoDecoderConfig } | undefined
     const pieces: Piece[] = []
     for (const pl of layoutVideo(p.video)) {
-      if (media[pl.clip.mediaId].image) return dispose(), null // a picture has no packets to copy
+      if (media[pl.clip.mediaId].image) return (dispose(), null) // a picture has no packets to copy
       const file = media[pl.clip.mediaId].file
       let input = inputs.get(file)
       if (!input) inputs.set(file, (input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS })))
       const track = await input.getPrimaryVideoTrack()
-      if (!track || (await track.getRotation()) || (await track.getDisplayWidth()) !== W || (await track.getDisplayHeight()) !== H) return dispose(), null
+      if (
+        !track ||
+        (await track.getRotation()) ||
+        (await track.getDisplayWidth()) !== W ||
+        (await track.getDisplayHeight()) !== H
+      )
+        return (dispose(), null)
       const config = await track.getDecoderConfig()
-      if (!config || (first && !sameConfig(first.config, config))) return dispose(), null
+      if (!config || (first && !sameConfig(first.config, config))) return (dispose(), null)
       first ??= { codec: (await track.getCodec())!, config }
-      if (Math.abs((await track.computePacketStats(120)).averagePacketRate - p.fps) > p.fps / 100) return dispose(), null
+      if (Math.abs((await track.computePacketStats(120)).averagePacketRate - p.fps) > p.fps / 100)
+        return (dispose(), null)
       const sink = new EncodedPacketSink(track)
       // A file's first frame can sit a little after 0 (22 ms, say): a clip from the start begins there.
       const from = Math.max(pl.clip.in, await track.getFirstTimestamp())
       const key = await sink.getKeyPacket(from + near, { verifyKeyPackets: true })
-      if (!key || Math.abs(key.timestamp - from) > near) return dispose(), null
+      if (!key || Math.abs(key.timestamp - from) > near) return (dispose(), null)
       if (pl.clip.out < (await track.computeDuration()) - near) {
         let last = -Infinity
         for await (const pkt of sink.packets(key, undefined, { metadataOnly: true })) {
           if (pkt.timestamp >= pl.clip.out - near) break
-          if (pkt.timestamp < last) return dispose(), null // B-frames: this cut can't be copied
+          if (pkt.timestamp < last) return (dispose(), null) // B-frames: this cut can't be copied
           last = pkt.timestamp
         }
       }
@@ -160,9 +222,19 @@ async function copyPlan(p: Project, media: Record<string, ExportMedia>, W: numbe
 // Same codec, size and codec setup bytes: packets from either decode with one decoder.
 const sameConfig = (a: VideoDecoderConfig, b: VideoDecoderConfig) => {
   const bytes = (d?: AllowSharedBufferSource) =>
-    !d ? new Uint8Array() : ArrayBuffer.isView(d) ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength) : new Uint8Array(d)
+    !d
+      ? new Uint8Array()
+      : ArrayBuffer.isView(d)
+        ? new Uint8Array(d.buffer, d.byteOffset, d.byteLength)
+        : new Uint8Array(d)
   const [x, y] = [bytes(a.description), bytes(b.description)]
-  return a.codec === b.codec && a.codedWidth === b.codedWidth && a.codedHeight === b.codedHeight && x.length === y.length && x.every((v, i) => v === y[i])
+  return (
+    a.codec === b.codec &&
+    a.codedWidth === b.codedWidth &&
+    a.codedHeight === b.codedHeight &&
+    x.length === y.length &&
+    x.every((v, i) => v === y[i])
+  )
 }
 
 async function copyVideo({ config, pieces }: Plan, video: EncodedVideoPacketSource, duration: number) {
@@ -197,7 +269,12 @@ async function copyVideo({ config, pieces }: Plan, video: EncodedVideoPacketSour
 // the encoder reading a canvas back costs ~3 ms a frame, which held small exports to ~330 fps, and the round trip
 // through the canvas softens colour detail. Only when the edit is Video 1 alone, so the picture can't soften as an
 // overlay comes and goes; between clips it changes anyway.
-async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: OffscreenCanvasRenderingContext2D, video: VideoSampleSource) {
+async function renderVideo(
+  p: Project,
+  media: Record<string, ExportMedia>,
+  ctx: OffscreenCanvasRenderingContext2D,
+  video: VideoSampleSource,
+) {
   const { width: W, height: H } = ctx.canvas
   const fps = p.fps
   const total = Math.ceil(projectDuration(p) * fps - 1e-6)
@@ -230,12 +307,23 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
         const { transform, crop } = l.pl.clip
         const r = layerRect(l.m.width, l.m.height, W, H, p.fit, transform, crop)
         const [cw, ch] = cropSize(l.m.width, l.m.height, crop)
-        const cut = crop && { left: Math.round(crop.l * l.m.width), top: Math.round(crop.t * l.m.height), width: Math.round(cw), height: Math.round(ch) }
+        const cut = crop && {
+          left: Math.round(crop.l * l.m.width),
+          top: Math.round(crop.t * l.m.height),
+          width: Math.round(cw),
+          height: Math.round(ch),
+        }
         if (l.m.image) {
           let still = stills.get(l)
           if (!still) {
-            const size: ImageBitmapOptions = { resizeWidth: Math.max(1, Math.round(r.w)), resizeHeight: Math.max(1, Math.round(r.h)), resizeQuality: 'high' }
-            still = await (cut ? createImageBitmap(l.m.file, cut.left, cut.top, cut.width, cut.height, size) : createImageBitmap(l.m.file, size))
+            const size: ImageBitmapOptions = {
+              resizeWidth: Math.max(1, Math.round(r.w)),
+              resizeHeight: Math.max(1, Math.round(r.h)),
+              resizeQuality: 'high',
+            }
+            still = await (cut
+              ? createImageBitmap(l.m.file, cut.left, cut.top, cut.width, cut.height, size)
+              : createImageBitmap(l.m.file, size))
             stills.set(l, still)
           }
           drawFrame(ctx, still, cw, ch, p.fit, false, transform)
@@ -248,19 +336,36 @@ async function renderVideo(p: Project, media: Record<string, ExportMedia>, ctx: 
           const track = (await input.getPrimaryVideoTrack())!
           // Constant output frame rate: one source lookup per output frame (handles speed up and slow-mo alike).
           const times = Array.from({ length: l.end - l.first }, (_, i) => sourceTime(l.pl, (l.first + i) / fps))
-          const asIs = video1Only && !transform && !crop && !(await track.getRotation()) && !(await track.getFlip()) &&
-            [await track.getCodedWidth(), await track.getCodedHeight(), await track.getDisplayWidth(), await track.getDisplayHeight()].join() === [W, H, W, H].join()
+          const asIs =
+            video1Only &&
+            !transform &&
+            !crop &&
+            !(await track.getRotation()) &&
+            !(await track.getFlip()) &&
+            [
+              await track.getCodedWidth(),
+              await track.getCodedHeight(),
+              await track.getDisplayWidth(),
+              await track.getDisplayHeight(),
+            ].join() === [W, H, W, H].join()
           if (asIs) s = { input, frames: new VideoSampleSink(track).samplesAtTimestamps(times) }
           else {
             // Decode straight to the final on-screen size (GPU crop, resize and rotation) so big sources stay cheap.
-            const sink = new CanvasSink(track, { width: Math.round(r.w), height: Math.round(r.h), fit: 'fill', crop: cut, poolSize: 2 })
+            const sink = new CanvasSink(track, {
+              width: Math.round(r.w),
+              height: Math.round(r.h),
+              fit: 'fill',
+              crop: cut,
+              poolSize: 2,
+            })
             s = { input, frames: sink.canvasesAtTimestamps(times) }
           }
           open.set(l, s)
         }
         const { value: frame } = await s.frames.next()
         if (!(frame instanceof VideoSample)) drawFrame(ctx, frame?.canvas ?? null, cw, ch, p.fit, false, transform)
-        else if (frame.format === 'I420' || frame.format === 'NV12') decoded = frame // no alpha, nothing to convert
+        else if (frame.format === 'I420' || frame.format === 'NV12')
+          decoded = frame // no alpha, nothing to convert
         else drawFrame(ctx, frame.toCanvasImageSource(), W, H, p.fit, false), frame.close()
         if (f === l.end - 1) await close(l)
       }

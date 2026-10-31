@@ -1,10 +1,11 @@
 // The playhead: a red line with its time in the ruler and a split button at its foot (kept in view when the tracks are
 // taller than the timeline). The player moves it through the DOM (`ref`, `labelRef`), so playing never re-renders.
-import type { Ref } from 'react'
+
 import { play } from 'cuelume'
 import { ArrowLeftFromLine, ArrowRightFromLine, Scissors } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import type { Ref } from 'react'
 import { Tip } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import { floating, mini } from './styles'
 
 export function Playhead(props: {
@@ -18,7 +19,10 @@ export function Playhead(props: {
   return (
     <div
       ref={props.ref}
-      className={cn('pointer-events-none absolute top-0 bottom-0 left-0 z-20 -ml-px flex w-0.5 flex-col justify-end bg-playhead', props.hidden && 'hidden')}
+      className={cn(
+        'pointer-events-none absolute top-0 bottom-0 left-0 z-20 -ml-px flex w-0.5 flex-col justify-end bg-playhead',
+        props.hidden && 'hidden',
+      )}
     >
       <span
         ref={props.labelRef}
@@ -28,7 +32,11 @@ export function Playhead(props: {
         0:00:00.0
       </span>
       {props.marking && (
-        <div onPointerDown={e => e.stopPropagation()} style={{ transform: 'translateX(var(--nudge, 0px))' }} className={cn(floating, 'left-1/2 ml-9')}>
+        <div
+          onPointerDown={e => e.stopPropagation()}
+          style={{ transform: 'translateX(var(--nudge, 0px))' }}
+          className={cn(floating, 'left-1/2 ml-9')}
+        >
           {(['in', 'out'] as const).map(edge => (
             <Tip key={edge} label={edge === 'in' ? 'Mark selection start here (I)' : 'Mark selection end here (O)'}>
               <button
